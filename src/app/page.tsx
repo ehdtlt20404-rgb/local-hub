@@ -69,6 +69,7 @@ const TABS = [
   { id: 'realestate', label: '부동산', icon: '🏘' },
   { id: 'bus', label: '교통', icon: '🚌' },
   { id: 'safety', label: '안전', icon: '🛡' },
+  { id: 'favorites', label: '즐겨찾기', icon: '⭐' },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -85,7 +86,6 @@ export default function HomePage() {
   const [rainAlert, setRainAlert] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [mobileView, setMobileView] = useState<'info' | 'map'>('info')
-  const [favOpen, setFavOpen] = useState(false)
   const { favorites, add: addFav, remove: removeFav, isSaved } = useFavorites()
 
   useEffect(() => {
@@ -181,12 +181,41 @@ export default function HomePage() {
       {activeTab === 'realestate' && <RealEstateWidget sido={sido} lat={lat} lng={lng} />}
       {activeTab === 'bus' && <BusWidget lat={lat} lng={lng} />}
       {activeTab === 'safety' && <SafetyWidget sido={sido} />}
+      {activeTab === 'favorites' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: 12, padding: '10px 14px' }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#fbbf24' }}>⭐ 즐겨찾기</p>
+            <p style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>별표 버튼으로 현재 위치를 저장하세요</p>
+          </div>
+          {favorites.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '32px 0', color: '#475569', fontSize: 13 }}>
+              <div style={{ fontSize: 28, marginBottom: 6 }}>📍</div>
+              저장된 위치가 없어요
+            </div>
+          ) : (
+            favorites.map(f => (
+              <div key={f.id} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  onClick={() => { setLat(f.lat); setLng(f.lng); setAddress(f.name); setSido(f.sido) }}
+                  style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  <p style={{ fontSize: 12, fontWeight: 700, color: 'white', marginBottom: 2 }}>{f.name}</p>
+                  <p style={{ fontSize: 10, color: '#475569' }}>{f.sido} · {f.lat.toFixed(3)}°N {f.lng.toFixed(3)}°E</p>
+                </button>
+                <button
+                  onClick={() => removeFav(f.id)}
+                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 7, padding: '5px 8px', color: '#f87171', cursor: 'pointer', fontSize: 11, fontWeight: 700, flexShrink: 0 }}
+                >삭제</button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </>
   )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: '#0f172a', overflow: 'hidden' }}>
-      {favOpen && <div onClick={() => setFavOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 499 }} />}
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
@@ -265,94 +294,28 @@ export default function HomePage() {
             <ChevronDown size={11} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
           </div>
 
-          {/* 즐겨찾기 버튼 */}
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setFavOpen(v => !v)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                background: isSaved(lat, lng) ? 'rgba(234,179,8,0.15)' : 'rgba(255,255,255,0.07)',
-                color: isSaved(lat, lng) ? '#fbbf24' : '#94a3b8',
-                border: `1px solid ${isSaved(lat, lng) ? 'rgba(234,179,8,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                borderRadius: 9, padding: '7px 9px', cursor: 'pointer', flexShrink: 0, fontSize: 12, fontWeight: 600,
-              }}
-            >
-              {isSaved(lat, lng) ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
-              {!isMobile && <span>{favorites.length > 0 ? `즐겨찾기 ${favorites.length}` : '즐겨찾기'}</span>}
-            </button>
-            {favOpen && (
-              <>
-              <div style={{
-                position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 500,
-                background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 12, minWidth: 240, boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                overflow: 'hidden',
-              }}>
-                {/* 현재 위치 저장/해제 */}
-                <div style={{ padding: '10px 12px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{address}</div>
-                    <div style={{ fontSize: 10, color: '#475569', marginTop: 1 }}>현재 위치</div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (isSaved(lat, lng)) {
-                        removeFav(`${lat.toFixed(4)}_${lng.toFixed(4)}`)
-                      } else {
-                        addFav({ name: address, lat, lng, sido })
-                      }
-                    }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 4,
-                      padding: '5px 10px', borderRadius: 7, border: 'none', cursor: 'pointer',
-                      fontSize: 11, fontWeight: 700, flexShrink: 0,
-                      background: isSaved(lat, lng) ? 'rgba(234,179,8,0.15)' : 'rgba(59,130,246,0.15)',
-                      color: isSaved(lat, lng) ? '#fbbf24' : '#60a5fa',
-                    }}
-                  >
-                    {isSaved(lat, lng) ? <><BookmarkCheck size={11} /> 저장됨</> : <><Bookmark size={11} /> 저장</>}
-                  </button>
-                </div>
-                {/* 저장된 목록 */}
-                {favorites.length === 0 ? (
-                  <div style={{ padding: '16px 12px', textAlign: 'center', fontSize: 11, color: '#475569' }}>
-                    저장된 즐겨찾기가 없어요
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ padding: '6px 12px 2px', fontSize: 9, fontWeight: 700, color: '#475569', letterSpacing: '0.06em', textTransform: 'uppercase' }}>저장된 위치</div>
-                    {favorites.map(f => (
-                      <div key={f.id} style={{ display: 'flex', alignItems: 'center' }}>
-                        <button
-                          onClick={() => {
-                            setLat(f.lat); setLng(f.lng); setAddress(f.name); setSido(f.sido)
-                            setFavOpen(false)
-                          }}
-                          style={{
-                            flex: 1, textAlign: 'left', padding: '8px 12px', background: 'none',
-                            border: 'none', color: 'white', fontSize: 12, cursor: 'pointer',
-                            display: 'flex', flexDirection: 'column', gap: 1,
-                          }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                        >
-                          <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{f.name}</span>
-                          <span style={{ fontSize: 10, color: '#475569' }}>{f.sido}</span>
-                        </button>
-                        <button
-                          onClick={() => removeFav(f.id)}
-                          style={{ padding: '8px 10px', background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 13 }}
-                          onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
-                          onMouseLeave={e => (e.currentTarget.style.color = '#475569')}
-                        >✕</button>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-              </>
-            )}
-          </div>
+          {/* 즐겨찾기 저장/해제 버튼 */}
+          <button
+            onClick={() => {
+              if (isSaved(lat, lng)) {
+                removeFav(`${lat.toFixed(4)}_${lng.toFixed(4)}`)
+              } else {
+                addFav({ name: address, lat, lng, sido })
+                setActiveTab('favorites')
+              }
+            }}
+            title={isSaved(lat, lng) ? '즐겨찾기 해제' : '현재 위치 즐겨찾기 저장'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              background: isSaved(lat, lng) ? 'rgba(234,179,8,0.15)' : 'rgba(255,255,255,0.07)',
+              color: isSaved(lat, lng) ? '#fbbf24' : '#94a3b8',
+              border: `1px solid ${isSaved(lat, lng) ? 'rgba(234,179,8,0.3)' : 'rgba(255,255,255,0.1)'}`,
+              borderRadius: 9, padding: '7px 9px', cursor: 'pointer', flexShrink: 0, fontSize: 12, fontWeight: 600,
+            }}
+          >
+            {isSaved(lat, lng) ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
+            {!isMobile && <span>{isSaved(lat, lng) ? '저장됨' : '저장'}</span>}
+          </button>
 
           {isMobile && (
 
