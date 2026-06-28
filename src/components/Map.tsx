@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, CircleMarker } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -15,35 +15,33 @@ const PLACE_COLORS: Record<string, string> = {
   pharmacy: '#8b5cf6', hospital: '#ef4444', convenience: '#f59e0b',
   cafe: '#10b981', subway: '#3b82f6', bank: '#06b6d4',
 }
-const PLACE_EMOJI: Record<string, string> = {
-  pharmacy: '💊', hospital: '🏥', convenience: '🏪',
-  cafe: '☕', subway: '🚇', bank: '🏦',
-}
-const PLACE_LABEL: Record<string, string> = {
-  pharmacy: '약국', hospital: '병원', convenience: '편의점',
-  cafe: '카페', subway: '지하철', bank: '은행',
-}
-const DEAL_COLOR: Record<string, string> = {
-  '매매': '#34d399', '전세': '#60a5fa', '월세': '#f59e0b',
-}
+const PLACE_EMOJI: Record<string, string> = { pharmacy: '💊', hospital: '🏥', convenience: '🏪', cafe: '☕', subway: '🚇', bank: '🏦' }
+const PLACE_LABEL: Record<string, string> = { pharmacy: '약국', hospital: '병원', convenience: '편의점', cafe: '카페', subway: '지하철', bank: '은행' }
+const DEAL_COLOR: Record<string, string> = { '매매': '#34d399', '전세': '#60a5fa', '월세': '#f59e0b' }
 
 interface Place { id: number; name: string; lat: number; lng: number; type: string; address?: string; phone?: string; distance?: string }
 export interface PriceMarker { lat: number; lng: number; name: string; price: string; dealType: string }
 
-function createPriceIcon(price: string, dealType: string) {
+function createPriceIcon(price: string, dealType: string, highlighted: boolean) {
   const color = DEAL_COLOR[dealType] || '#34d399'
   const bg = dealType === '매매' ? '#064e3b' : dealType === '전세' ? '#1e3a5f' : '#451a03'
+  const scale = highlighted ? 1.25 : 1
+  const shadow = highlighted
+    ? `0 0 0 3px ${color}, 0 4px 20px rgba(0,0,0,0.8)`
+    : '0 3px 14px rgba(0,0,0,0.7)'
+  const w = highlighted ? 76 : 60
+  const h = highlighted ? 46 : 38
   return L.divIcon({
     className: '',
     html: `
-      <div style="position:relative;display:inline-block">
-        <div style="background:${bg};border:2px solid ${color};border-radius:10px;padding:5px 10px;font-size:13px;font-weight:900;color:${color};white-space:nowrap;box-shadow:0 3px 14px rgba(0,0,0,0.7);letter-spacing:-0.3px;line-height:1">
-          <span style="font-size:9px;opacity:0.75;margin-right:2px">${dealType}</span>${price}
+      <div style="position:relative;display:inline-block;transform:scale(${scale});transform-origin:bottom center">
+        <div style="background:${bg};border:${highlighted ? '3px' : '2px'} solid ${color};border-radius:10px;padding:5px 10px;font-size:${highlighted ? '15px' : '13px'};font-weight:900;color:${color};white-space:nowrap;box-shadow:${shadow};letter-spacing:-0.3px;line-height:1">
+          <span style="font-size:9px;opacity:0.8;margin-right:2px">${dealType}</span>${price}
         </div>
         <div style="position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:7px solid ${color}"></div>
       </div>`,
-    iconAnchor: [30, 38],
-    iconSize: [60, 38],
+    iconAnchor: [w / 2, h],
+    iconSize: [w, h],
   })
 }
 
@@ -64,12 +62,13 @@ interface Props {
   onMapClick: (lat: number, lng: number) => void
   places?: Place[]
   priceMarkers?: PriceMarker[]
+  highlightedApt?: string | null
   onPriceMarkerClick?: (name: string) => void
   focusLat?: number
   focusLng?: number
 }
 
-export default function Map({ lat, lng, address, onMapClick, places = [], priceMarkers = [], onPriceMarkerClick, focusLat, focusLng }: Props) {
+export default function Map({ lat, lng, address, onMapClick, places = [], priceMarkers = [], highlightedApt, onPriceMarkerClick, focusLat, focusLng }: Props) {
   return (
     <MapContainer key="map" center={[lat, lng]} zoom={15} style={{ width: '100%', height: '100%' }}>
       <TileLayer
@@ -96,32 +95,36 @@ export default function Map({ lat, lng, address, onMapClick, places = [], priceM
         </CircleMarker>
       ))}
 
-      {priceMarkers.map((pm, i) => (
-        <Marker key={i} position={[pm.lat, pm.lng]} icon={createPriceIcon(pm.price, pm.dealType)}>
-          <Popup minWidth={180}>
-            <div style={{ fontSize: 12 }}>
-              <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4 }}>{pm.name}</div>
-              <div style={{ color: DEAL_COLOR[pm.dealType] || '#34d399', fontWeight: 700, marginBottom: 8 }}>{pm.dealType} {pm.price}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {onPriceMarkerClick && (
-                  <button
-                    onClick={() => onPriceMarkerClick(pm.name)}
-                    style={{ width: '100%', padding: '5px 0', background: '#1d4ed8', color: 'white', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
-                  >📋 거래 내역 보기</button>
-                )}
-                <a href={`https://land.naver.com/search?query=${encodeURIComponent(pm.name)}`} target="_blank" rel="noreferrer"
-                  style={{ display: 'block', textAlign: 'center', padding: '5px 0', background: '#166534', color: '#4ade80', borderRadius: 6, fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
-                  🏠 네이버 부동산
-                </a>
-                <a href={`https://map.kakao.com/link/search/${encodeURIComponent(pm.name)}`} target="_blank" rel="noreferrer"
-                  style={{ display: 'block', textAlign: 'center', padding: '5px 0', background: '#713f12', color: '#fbbf24', borderRadius: 6, fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
-                  🗺 카카오맵
-                </a>
+      {/* 하이라이트 안된 것 먼저, 하이라이트된 것 나중에 (z-index 위로) */}
+      {[...priceMarkers.filter(pm => pm.name !== highlightedApt), ...priceMarkers.filter(pm => pm.name === highlightedApt)].map((pm, i) => {
+        const isHighlighted = pm.name === highlightedApt
+        return (
+          <Marker
+            key={pm.name + i}
+            position={[pm.lat, pm.lng]}
+            icon={createPriceIcon(pm.price, pm.dealType, isHighlighted)}
+            eventHandlers={{ click: () => onPriceMarkerClick?.(pm.name) }}
+            zIndexOffset={isHighlighted ? 1000 : 0}
+          >
+            <Popup minWidth={160}>
+              <div style={{ fontSize: 12 }}>
+                <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 3 }}>{pm.name}</div>
+                <div style={{ color: DEAL_COLOR[pm.dealType] || '#34d399', fontWeight: 700, marginBottom: 8 }}>{pm.dealType} {pm.price}</div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <a href={`https://land.naver.com/search?query=${encodeURIComponent(pm.name)}`} target="_blank" rel="noreferrer"
+                    style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#166534', color: '#4ade80', borderRadius: 5, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>
+                    네이버
+                  </a>
+                  <a href={`https://map.kakao.com/link/search/${encodeURIComponent(pm.name)}`} target="_blank" rel="noreferrer"
+                    style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#713f12', color: '#fbbf24', borderRadius: 5, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>
+                    카카오맵
+                  </a>
+                </div>
               </div>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
+            </Popup>
+          </Marker>
+        )
+      })}
 
       <MapEvents onMapClick={onMapClick} />
       <MapCenter lat={lat} lng={lng} focusLat={focusLat} focusLng={focusLng} />

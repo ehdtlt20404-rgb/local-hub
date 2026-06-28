@@ -82,6 +82,7 @@ export default function HomePage() {
   const [priceMarkers, setPriceMarkers] = useState<any[]>([])
   const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number } | null>(null)
   const [aptExternalSelect, setAptExternalSelect] = useState<string | null>(null)
+  const [highlightedApt, setHighlightedApt] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [rainAlert, setRainAlert] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
@@ -208,7 +209,10 @@ export default function HomePage() {
         <RealEstateWidget sido={sido} lat={lat} lng={lng}
           onItemsChange={handleRealEstateItems}
           externalSelected={aptExternalSelect}
-          onAptLocate={(aLat, aLng) => setMapFocus({ lat: aLat, lng: aLng })}
+          onAptLocate={(aLat, aLng, name) => {
+            setMapFocus({ lat: aLat, lng: aLng })
+            setHighlightedApt(name)
+          }}
         />
       )}
       {activeTab === 'life' && (
@@ -530,10 +534,13 @@ export default function HomePage() {
             <Map lat={lat} lng={lng} address={address} onMapClick={handleMapClick}
               places={activeTab === 'places' ? mapPlaces : []}
               priceMarkers={activeTab === 'realestate' ? priceMarkers : []}
+              highlightedApt={highlightedApt}
               focusLat={mapFocus?.lat}
               focusLng={mapFocus?.lng}
               onPriceMarkerClick={name => {
                 setAptExternalSelect(name)
+                setHighlightedApt(name)
+                setActiveTab('realestate')
                 setSidebarOpen(true)
               }}
             />
