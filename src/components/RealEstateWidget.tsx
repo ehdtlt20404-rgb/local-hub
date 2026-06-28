@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { Calendar, ArrowLeft } from 'lucide-react'
+import { Calendar, ArrowLeft, TrendingUp, BarChart2 } from 'lucide-react'
 
 interface TradeItem {
   dealType: string; propType: string; aptNm: string; aptDong: string
@@ -126,32 +126,123 @@ export default function RealEstateWidget({ sido, lat, lng }: { sido: string; lat
 
   const activeProp = PROP_TYPES.find(p => p.id === propType)!
 
-  if (selected) return (
-    <div>
-      <button onClick={() => setSelected(null)} style={{
-        display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.06)',
-        border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 12px',
-        color: '#94a3b8', fontSize: 12, fontWeight: 600, cursor: 'pointer', marginBottom: 12,
-      }}>
-        <ArrowLeft size={13} /> 목록으로
-      </button>
-      <div style={{ marginBottom: 10 }}>
-        <p style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>{selected}</p>
-        <p style={{ fontSize: 11, color: '#64748b' }}>근 1년 실거래 내역 · 최신순</p>
+  if (selected) {
+    // 월별 평균 시세 계산 (매매/전세만, 월세 제외)
+    const chartData = (() => {
+      const byMonth: Record<string, number[]> = {}
+      for (const item of history) {
+        if (item.dealType === '월세') continue
+        const key = `${item.dealYear}-${String(item.dealMonth).padStart(2,'0')}`
+        const n = parseInt(item.dealAmount.replace(/,/g, ''))
+        if (!isNaN(n) && n > 0) {
+          if (!byMonth[key]) byMonth[key] = []
+          byMonth[key].push(n)
+        }
+      }
+      return Object.entries(byMonth)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([ym, vals]) => ({
+          label: ym.slice(2).replace('-', '/'),
+          avg: Math.round(vals.reduce((s, v) => s + v, 0) / vals.length),
+        }))
+    })()
+
+    const PriceChart = () => {
+      if (chartData.length < 2) return null
+      const W = 260, H = 90, PAD = { t: 10, r: 10, b: 24, l: 52 }
+      const iW = W - PAD.l - PAD.r
+      const iH = H - PAD.t - PAD.b
+      const vals = chartData.map(d => d.avg)
+      const min = Math.min(...vals), max = Math.max(...vals)
+      const range = max - min || 1
+      const pts = chartData.map((d, i) => ({
+        x: PAD.l + (i / (chartData.length - 1)) * iW,
+        y: PAD.t + iH - ((d.avg - min) / range) * iH,
+        ...d,
+      }))
+      const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+      const area = `${path} L${pts[pts.length-1].x.toFixed(1)},${(PAD.t+iH).toFixed(1)} L${PAD.l},${(PAD.t+iH).toFixed(1)} Z`
+      const fmtY = (v: number) => v >= 10000 ? `${Math.floor(v/10000)}억` : `${Math.round(v/1000)*1000 !== 0 ? `${Math.round(v/1000)}천` : `${v}만`}`
+      return (
+        <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: '12px 10px 8px', border: '1px solid rgba(255,255,255,0.07)', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 8 }}>
+            <TrendingUp size={11} color="#3b82f6" />
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b' }}>월별 평균 시세 추이</span>
+          </div>
+          <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
+            {/* Y축 라벨 */}
+            {[0, 0.5, 1].map(r => {
+              const v = min + range * r
+              const y = PAD.t + iH - r * iH
+              return (
+                <g key={r}>
+                  <line x1={PAD.l} y1={y} x2={PAD.l + iW} y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+                  <text x={PAD.l - 4} y={y + 3} textAnchor="end" fontSize={8} fill="#475569">{fmtY(v)}</text>
+                </g>
+              )
+            })}
+            {/* 그라데이션 영역 */}
+            <defs>
+              <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <path d={area} fill="url(#chartGrad)" />
+            <path d={path} fill="none" stroke="#3b82f6" strokeWidth={1.8} strokeLinejoin="round" />
+            {/* 데이터 포인트 + X축 라벨 */}
+            {pts.map((p, i) => (
+              <g key={i}>
+                <circle cx={p.x} cy={p.y} r={3} fill="#3b82f6" />
+                {(i === 0 || i === pts.length - 1 || pts.length <= 6 || i % Math.ceil(pts.length / 6) === 0) && (
+                  <text x={p.x} y={H - 4} textAnchor="middle" fontSize={7.5} fill="#475569">{p.label}</text>
+                )}
+              </g>
+            ))}
+            {/* 최고/최저 */}
+            {(() => {
+              const maxPt = pts.reduce((a, b) => a.avg > b.avg ? a : b)
+              const minPt = pts.reduce((a, b) => a.avg < b.avg ? a : b)
+              return <>
+                <text x={maxPt.x} y={maxPt.y - 5} textAnchor="middle" fontSize={8} fill="#34d399" fontWeight="bold">{fmtY(maxPt.avg)}</text>
+                <text x={minPt.x} y={minPt.y + 11} textAnchor="middle" fontSize={8} fill="#f87171" fontWeight="bold">{fmtY(minPt.avg)}</text>
+              </>
+            })()}
+          </svg>
+        </div>
+      )
+    }
+
+    return (
+      <div>
+        <button onClick={() => setSelected(null)} style={{
+          display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.06)',
+          border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '7px 12px',
+          color: '#94a3b8', fontSize: 12, fontWeight: 600, cursor: 'pointer', marginBottom: 12,
+        }}>
+          <ArrowLeft size={13} /> 목록으로
+        </button>
+        <div style={{ marginBottom: 10 }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>{selected}</p>
+          <p style={{ fontSize: 11, color: '#64748b' }}>근 1년 실거래 내역 · 최신순</p>
+        </div>
+        {histLoading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {[...Array(3)].map((_, i) => <div key={i} style={{ height: 72, borderRadius: 12, background: 'linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />)}
+          </div>
+        ) : history.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '32px 0', color: '#475569', fontSize: 13 }}>거래 내역이 없어요</div>
+        ) : (
+          <>
+            <PriceChart />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {history.map((item, i) => <TradeRow key={i} item={item} />)}
+            </div>
+          </>
+        )}
       </div>
-      {histLoading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {[...Array(3)].map((_, i) => <div key={i} style={{ height: 72, borderRadius: 12, background: 'linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />)}
-        </div>
-      ) : history.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '32px 0', color: '#475569', fontSize: 13 }}>거래 내역이 없어요</div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {history.map((item, i) => <TradeRow key={i} item={item} />)}
-        </div>
-      )}
-    </div>
-  )
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
