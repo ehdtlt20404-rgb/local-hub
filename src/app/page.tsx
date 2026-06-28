@@ -80,6 +80,8 @@ export default function HomePage() {
   const [searching, setSearching] = useState(false)
   const [mapPlaces, setMapPlaces] = useState<any[]>([])
   const [priceMarkers, setPriceMarkers] = useState<any[]>([])
+  const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number } | null>(null)
+  const [aptExternalSelect, setAptExternalSelect] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [rainAlert, setRainAlert] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
@@ -203,7 +205,11 @@ export default function HomePage() {
       {activeTab === 'places' && <PlacesWidget lat={lat} lng={lng} onPlacesChange={setMapPlaces} />}
       {activeTab === 'food' && <RestaurantWidget lat={lat} lng={lng} />}
       {activeTab === 'realestate' && (
-        <RealEstateWidget sido={sido} lat={lat} lng={lng} onItemsChange={handleRealEstateItems} />
+        <RealEstateWidget sido={sido} lat={lat} lng={lng}
+          onItemsChange={handleRealEstateItems}
+          externalSelected={aptExternalSelect}
+          onAptLocate={(aLat, aLng) => setMapFocus({ lat: aLat, lng: aLng })}
+        />
       )}
       {activeTab === 'life' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -524,6 +530,12 @@ export default function HomePage() {
             <Map lat={lat} lng={lng} address={address} onMapClick={handleMapClick}
               places={activeTab === 'places' ? mapPlaces : []}
               priceMarkers={activeTab === 'realestate' ? priceMarkers : []}
+              focusLat={mapFocus?.lat}
+              focusLng={mapFocus?.lng}
+              onPriceMarkerClick={name => {
+                setAptExternalSelect(name)
+                setSidebarOpen(true)
+              }}
             />
             <div style={{
               position: 'absolute', bottom: 18, left: '50%', transform: 'translateX(-50%)',

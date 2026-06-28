@@ -57,7 +57,7 @@ function pyeong(ar: string) {
   return isNaN(n) ? '' : `${Math.round(n / 3.3058)}평`
 }
 
-function TradeRow({ item, onClick }: { item: TradeItem; onClick?: () => void }) {
+function TradeRow({ item, onClick, onLocate }: { item: TradeItem; onClick?: () => void; onLocate?: () => void }) {
   const color = DEAL_TYPE_COLOR[item.dealType] || '#34d399'
   return (
     <div
@@ -84,14 +84,20 @@ function TradeRow({ item, onClick }: { item: TradeItem; onClick?: () => void }) 
         <span style={{ marginLeft: 'auto', color: '#374151' }}><Calendar size={8} style={{ display: 'inline', marginRight: 2 }} />{formatDate(item.dealYear, item.dealMonth, item.dealDay)}</span>
       </div>
       {onClick && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 }}>
-          <span style={{ fontSize: 9, color: '#334155' }}>클릭 → 1년 내역 보기</span>
-          <a
-            href={`https://land.naver.com/search?query=${encodeURIComponent(item.aptNm)}`}
-            target="_blank" rel="noreferrer"
-            onClick={e => e.stopPropagation()}
-            style={{ fontSize: 9, color: '#4ade80', textDecoration: 'none', background: 'rgba(74,222,128,0.08)', borderRadius: 4, padding: '2px 6px' }}
-          >네이버 부동산 →</a>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, gap: 4 }}>
+          {onLocate && (
+            <button onClick={e => { e.stopPropagation(); onLocate() }} style={{ fontSize: 9, color: '#60a5fa', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', fontWeight: 600 }}>
+              📍 지도에서 보기
+            </button>
+          )}
+          <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
+            <a href={`https://land.naver.com/search?query=${encodeURIComponent(item.aptNm)}`} target="_blank" rel="noreferrer"
+              onClick={e => e.stopPropagation()}
+              style={{ fontSize: 9, color: '#4ade80', textDecoration: 'none', background: 'rgba(74,222,128,0.08)', borderRadius: 4, padding: '2px 6px', fontWeight: 600 }}>네이버</a>
+            <a href={`https://map.kakao.com/link/search/${encodeURIComponent(item.aptNm)}`} target="_blank" rel="noreferrer"
+              onClick={e => e.stopPropagation()}
+              style={{ fontSize: 9, color: '#fbbf24', textDecoration: 'none', background: 'rgba(251,191,36,0.08)', borderRadius: 4, padding: '2px 6px', fontWeight: 600 }}>카카오맵</a>
+          </div>
         </div>
       )}
     </div>
@@ -165,9 +171,11 @@ function PriceChart({ chartData }: { chartData: { label: string; avg: number }[]
 
 const COMPARE_CITIES = ['서울', '부산', '대구', '대전', '광주', '인천']
 
-export default function RealEstateWidget({ sido, lat, lng, onItemsChange }: {
+export default function RealEstateWidget({ sido, lat, lng, onItemsChange, externalSelected, onAptLocate }: {
   sido: string; lat: number; lng: number
   onItemsChange?: (items: TradeItem[]) => void
+  externalSelected?: string | null
+  onAptLocate?: (lat: number, lng: number, name: string) => void
 }) {
   const [dealTab, setDealTab] = useState<DealTab>('trade')
   const [propType, setPropType] = useState<PropType>('apt')
@@ -195,6 +203,13 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange }: {
       })
       .catch(() => setLoading(false))
   }, [sido, lat, lng, dealTab, propType])
+
+  // 지도 마커 클릭 시 외부에서 선택된 아파트 자동 오픈
+  useEffect(() => {
+    if (externalSelected && externalSelected !== selected) {
+      handleAptClick(externalSelected)
+    }
+  }, [externalSelected])
 
   async function loadCompare() {
     setCompareLoading(true)
@@ -359,7 +374,16 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange }: {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          {items.map((item, i) => <TradeRow key={i} item={item} onClick={() => handleAptClick(item.aptNm)} />)}
+          {items.map((item, i) => (
+            <TradeRow key={i} item={item}
+              onClick={() => handleAptClick(item.aptNm)}
+              onLocate={onAptLocate ? async () => {
+                const res = await fetch(`/api/geocode-apt?q=${encodeURIComponent(item.aptNm + ' ' + (item.umdNm || ''))}`)
+                const d = await res.json()
+                if (d.lat) onAptLocate(d.lat, d.lng, item.aptNm)
+              } : undefined}
+            />
+          ))}
         </div>
       )}
 

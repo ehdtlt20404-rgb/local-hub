@@ -52,9 +52,10 @@ function MapEvents({ onMapClick }: { onMapClick: (lat: number, lng: number) => v
   return null
 }
 
-function MapCenter({ lat, lng }: { lat: number; lng: number }) {
+function MapCenter({ lat, lng, focusLat, focusLng }: { lat: number; lng: number; focusLat?: number; focusLng?: number }) {
   const map = useMap()
   useEffect(() => { map.setView([lat, lng], map.getZoom()) }, [lat, lng])
+  useEffect(() => { if (focusLat && focusLng) map.setView([focusLat, focusLng], 17) }, [focusLat, focusLng])
   return null
 }
 
@@ -63,9 +64,12 @@ interface Props {
   onMapClick: (lat: number, lng: number) => void
   places?: Place[]
   priceMarkers?: PriceMarker[]
+  onPriceMarkerClick?: (name: string) => void
+  focusLat?: number
+  focusLng?: number
 }
 
-export default function Map({ lat, lng, address, onMapClick, places = [], priceMarkers = [] }: Props) {
+export default function Map({ lat, lng, address, onMapClick, places = [], priceMarkers = [], onPriceMarkerClick, focusLat, focusLng }: Props) {
   return (
     <MapContainer key="map" center={[lat, lng]} zoom={15} style={{ width: '100%', height: '100%' }}>
       <TileLayer
@@ -94,17 +98,33 @@ export default function Map({ lat, lng, address, onMapClick, places = [], priceM
 
       {priceMarkers.map((pm, i) => (
         <Marker key={i} position={[pm.lat, pm.lng]} icon={createPriceIcon(pm.price, pm.dealType)}>
-          <Popup>
+          <Popup minWidth={180}>
             <div style={{ fontSize: 12 }}>
-              <div style={{ fontWeight: 700, marginBottom: 3 }}>{pm.name}</div>
-              <div style={{ color: DEAL_COLOR[pm.dealType] || '#34d399', fontWeight: 700 }}>{pm.dealType} {pm.price}</div>
+              <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4 }}>{pm.name}</div>
+              <div style={{ color: DEAL_COLOR[pm.dealType] || '#34d399', fontWeight: 700, marginBottom: 8 }}>{pm.dealType} {pm.price}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {onPriceMarkerClick && (
+                  <button
+                    onClick={() => onPriceMarkerClick(pm.name)}
+                    style={{ width: '100%', padding: '5px 0', background: '#1d4ed8', color: 'white', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                  >📋 거래 내역 보기</button>
+                )}
+                <a href={`https://land.naver.com/search?query=${encodeURIComponent(pm.name)}`} target="_blank" rel="noreferrer"
+                  style={{ display: 'block', textAlign: 'center', padding: '5px 0', background: '#166534', color: '#4ade80', borderRadius: 6, fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
+                  🏠 네이버 부동산
+                </a>
+                <a href={`https://map.kakao.com/link/search/${encodeURIComponent(pm.name)}`} target="_blank" rel="noreferrer"
+                  style={{ display: 'block', textAlign: 'center', padding: '5px 0', background: '#713f12', color: '#fbbf24', borderRadius: 6, fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
+                  🗺 카카오맵
+                </a>
+              </div>
             </div>
           </Popup>
         </Marker>
       ))}
 
       <MapEvents onMapClick={onMapClick} />
-      <MapCenter lat={lat} lng={lng} />
+      <MapCenter lat={lat} lng={lng} focusLat={focusLat} focusLng={focusLng} />
     </MapContainer>
   )
 }
