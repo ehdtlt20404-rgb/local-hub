@@ -53,7 +53,7 @@ export default function BusWidget({ lat, lng }: { lat: number; lng: number }) {
         borderRadius: 12, padding: '10px 14px', border: '1px solid rgba(59,130,246,0.15)',
       }}>
         <p style={{ fontSize: 12, fontWeight: 700, color: 'white' }}>🚌 주변 버스 정류장</p>
-        <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>700m 이내 · 클릭하면 대전 버스 정보시스템에서 실시간 도착 정보 확인</p>
+        <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>700m 이내 · 클릭하면 카카오맵에서 실시간 도착 정보 확인</p>
       </div>
 
       {loading ? (
@@ -76,7 +76,7 @@ export default function BusWidget({ lat, lng }: { lat: number; lng: number }) {
       ) : stops.map(stop => (
         <a
           key={stop.id}
-          href={`https://bus.daejeon.go.kr/busstop/busstopSearch.do?searchKeyword=${encodeURIComponent(stop.name)}`}
+          href={`https://map.kakao.com/link/search/${encodeURIComponent(stop.name + ' 버스정류장')}`}
           target="_blank" rel="noreferrer"
           style={{
             background: 'rgba(255,255,255,0.04)', borderRadius: 12,
@@ -92,7 +92,7 @@ export default function BusWidget({ lat, lng }: { lat: number; lng: number }) {
               🚏 {stop.name}
               {stop.ref && <span style={{ fontSize: 10, color: '#64748b', marginLeft: 6 }}>({stop.ref}번)</span>}
             </p>
-            <p style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>대전 버스 정보시스템에서 실시간 도착 확인</p>
+            <p style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>카카오맵에서 실시간 도착 확인</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             <span style={{ fontSize: 11, color: '#3b82f6', fontWeight: 600 }}>{stop.distance}m</span>
