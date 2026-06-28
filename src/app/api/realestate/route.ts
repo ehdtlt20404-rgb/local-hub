@@ -132,10 +132,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ items: sortByDate(all), sido, lawdCd, filterDong })
     } else {
       async function fetchList(cd: string) {
-        const months6 = await Promise.all(
-          Array.from({ length: 6 }, (_, i) => fetchItems(cd, getYm(i), propType, dealType))
-        )
-        return months6.flat()
+        const months = Array.from({ length: 36 }, (_, i) => getYm(i))
+        const all: any[] = []
+        for (let i = 0; i < months.length; i += 10) {
+          const batch = months.slice(i, i + 10)
+          const results = await Promise.all(batch.map(ym => fetchItems(cd, ym, propType, dealType)))
+          all.push(...results.flat())
+        }
+        return all
       }
 
       let all = await fetchList(lawdCd)

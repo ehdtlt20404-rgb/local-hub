@@ -90,7 +90,7 @@ export default function HomePage() {
   const { favorites, add: addFav, remove: removeFav, isSaved } = useFavorites()
 
   async function handleRealEstateItems(items: any[]) {
-    const top = items.slice(0, 30)
+    const top = items.slice(0, 50)
     const markers = await Promise.all(top.map(async item => {
       try {
         const res = await fetch(`/api/geocode-apt?q=${encodeURIComponent(item.aptNm + (item.umdNm ? ' ' + item.umdNm : ''))}&propType=${item.propType || 'apt'}`)
