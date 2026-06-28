@@ -57,7 +57,7 @@ function pyeong(ar: string) {
   return isNaN(n) ? '' : `${Math.round(n / 3.3058)}평`
 }
 
-function TradeRow({ item, onClick, onLocate }: { item: TradeItem; onClick?: () => void; onLocate?: () => void }) {
+function TradeRow({ item, onClick }: { item: TradeItem; onClick?: () => void }) {
   const color = DEAL_TYPE_COLOR[item.dealType] || '#34d399'
   return (
     <div
@@ -84,20 +84,13 @@ function TradeRow({ item, onClick, onLocate }: { item: TradeItem; onClick?: () =
         <span style={{ marginLeft: 'auto', color: '#374151' }}><Calendar size={8} style={{ display: 'inline', marginRight: 2 }} />{formatDate(item.dealYear, item.dealMonth, item.dealDay)}</span>
       </div>
       {onClick && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, gap: 4 }}>
-          {onLocate && (
-            <button onClick={e => { e.stopPropagation(); onLocate() }} style={{ fontSize: 9, color: '#60a5fa', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 4, padding: '2px 6px', cursor: 'pointer', fontWeight: 600 }}>
-              📍 지도에서 보기
-            </button>
-          )}
-          <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
-            <a href={`https://land.naver.com/search?query=${encodeURIComponent(item.aptNm)}`} target="_blank" rel="noreferrer"
-              onClick={e => e.stopPropagation()}
-              style={{ fontSize: 9, color: '#4ade80', textDecoration: 'none', background: 'rgba(74,222,128,0.08)', borderRadius: 4, padding: '2px 6px', fontWeight: 600 }}>네이버</a>
-            <a href={`https://map.kakao.com/link/search/${encodeURIComponent(item.aptNm)}`} target="_blank" rel="noreferrer"
-              onClick={e => e.stopPropagation()}
-              style={{ fontSize: 9, color: '#fbbf24', textDecoration: 'none', background: 'rgba(251,191,36,0.08)', borderRadius: 4, padding: '2px 6px', fontWeight: 600 }}>카카오맵</a>
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: 6, gap: 4 }}>
+          <a href={`https://land.naver.com/search?query=${encodeURIComponent(item.aptNm)}`} target="_blank" rel="noreferrer"
+            onClick={e => e.stopPropagation()}
+            style={{ fontSize: 9, color: '#4ade80', textDecoration: 'none', background: 'rgba(74,222,128,0.08)', borderRadius: 4, padding: '2px 6px', fontWeight: 600 }}>네이버</a>
+          <a href={`https://map.kakao.com/link/search/${encodeURIComponent(item.aptNm)}`} target="_blank" rel="noreferrer"
+            onClick={e => e.stopPropagation()}
+            style={{ fontSize: 9, color: '#fbbf24', textDecoration: 'none', background: 'rgba(251,191,36,0.08)', borderRadius: 4, padding: '2px 6px', fontWeight: 600 }}>카카오맵</a>
         </div>
       )}
     </div>
@@ -376,12 +369,14 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           {items.map((item, i) => (
             <TradeRow key={i} item={item}
-              onClick={() => handleAptClick(item.aptNm)}
-              onLocate={onAptLocate ? async () => {
-                const res = await fetch(`/api/geocode-apt?q=${encodeURIComponent(item.aptNm + ' ' + (item.umdNm || ''))}`)
-                const d = await res.json()
-                if (d.lat) onAptLocate(d.lat, d.lng, item.aptNm)
-              } : undefined}
+              onClick={async () => {
+                handleAptClick(item.aptNm)
+                if (onAptLocate) {
+                  const res = await fetch(`/api/geocode-apt?q=${encodeURIComponent(item.aptNm + ' ' + (item.umdNm || ''))}`)
+                  const d = await res.json()
+                  if (d.lat) onAptLocate(d.lat, d.lng, item.aptNm)
+                }
+              }}
             />
           ))}
         </div>
