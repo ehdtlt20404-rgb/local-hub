@@ -186,6 +186,7 @@ export default function HomePage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: '#0f172a', overflow: 'hidden' }}>
+      {favOpen && <div onClick={() => setFavOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 499 }} />}
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
@@ -281,7 +282,6 @@ export default function HomePage() {
             </button>
             {favOpen && (
               <>
-              <div onClick={() => setFavOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 499 }} />
               <div style={{
                 position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 500,
                 background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)',
@@ -355,6 +355,7 @@ export default function HomePage() {
           </div>
 
           {isMobile && (
+
             <button onClick={() => setMobileView(v => v === 'info' ? 'map' : 'info')} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: mobileView === 'map' ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.07)',
