@@ -8,6 +8,19 @@ const SIDO_LAWD: Record<string, string> = {
   '제주': '50110',
 }
 
+// propertyType → { trade endpoint, rent endpoint }
+const ENDPOINTS: Record<string, { trade: string; rent: string }> = {
+  apt:      { trade: 'RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev',  rent: 'RTMSDataSvcAptRent/getRTMSDataSvcAptRent' },
+  villa:    { trade: 'RTMSDataSvcRHTrade/getRTMSDataSvcRHTrade',           rent: 'RTMSDataSvcRHRent/getRTMSDataSvcRHRent' },
+  house:    { trade: 'RTMSDataSvcSHTrade/getRTMSDataSvcSHTrade',           rent: 'RTMSDataSvcSHRent/getRTMSDataSvcSHRent' },
+  officetel:{ trade: 'RTMSDataSvcOffiTrade/getRTMSDataSvcOffiTrade',       rent: 'RTMSDataSvcOffiRent/getRTMSDataSvcOffiRent' },
+}
+
+// 유형별 건물명 태그 (API마다 다름)
+const NAME_TAG: Record<string, string> = {
+  apt: 'aptNm', villa: 'mhouseNm', house: 'bdNm', officetel: 'offiNm',
+}
+
 async function getRegionFromCoords(lat: string, lng: string) {
   try {
     const res = await fetch(
@@ -17,10 +30,7 @@ async function getRegionFromCoords(lat: string, lng: string) {
     const data = await res.json()
     const region = data.documents?.find((d: any) => d.region_type === 'B')
     if (!region) return null
-    return {
-      lawdCd: region.code.slice(0, 5),
-      dongName: region.region_3depth_name || '',
-    }
+    return { lawdCd: region.code.slice(0, 5), dongName: region.region_3depth_name || '' }
   } catch { return null }
 }
 
@@ -35,66 +45,53 @@ function getTag(str: string, tag: string) {
   return m ? m[1].trim() : ''
 }
 
-async function fetchTrade(lawdCd: string, ym: string) {
+async function fetchItems(lawdCd: string, ym: string, propType: string, dealType: string) {
   const key = process.env.PUBLIC_DATA_API_KEY || ''
-  const url = `https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${key}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=999&pageNo=1`
+  const ep = ENDPOINTS[propType]?.[dealType as 'trade' | 'rent']
+  if (!ep) return []
+  const nameTag = NAME_TAG[propType] || 'aptNm'
+  const url = `https://apis.data.go.kr/1613000/${ep}?serviceKey=${key}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=999&pageNo=1`
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
     const xml = await res.text()
-    if (!xml.includes('<item>')) return []
-    return (xml.match(/<item>[\s\S]*?<\/item>/g) || []).map(item => ({
-      dealType: '매매',
-      aptNm: getTag(item, 'aptNm'),
-      aptDong: getTag(item, 'aptDong').trim(),
-      dealAmount: getTag(item, 'dealAmount').replace(/,/g, ''),
-      excluUseAr: getTag(item, 'excluUseAr'),
-      floor: getTag(item, 'floor'),
-      buildYear: getTag(item, 'buildYear'),
-      dealYear: getTag(item, 'dealYear'),
-      dealMonth: getTag(item, 'dealMonth'),
-      dealDay: getTag(item, 'dealDay'),
-      umdNm: getTag(item, 'umdNm'),
-    }))
-  } catch { return [] }
-}
-
-async function fetchRent(lawdCd: string, ym: string) {
-  const key = process.env.PUBLIC_DATA_API_KEY || ''
-  const url = `https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent?serviceKey=${key}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=999&pageNo=1&_type=xml`
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
-    const xml = await res.text()
-    // 첫 item의 태그 이름을 로그로 확인
-    if (ym === ((): string => {
-      const now = new Date(Date.now() + 9*60*60*1000)
-      const d = new Date(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)
-      return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}`
-    })()) {
-      const firstItem = xml.match(/<item>([\s\S]*?)<\/item>/)?.[1] || ''
-      const tags = [...firstItem.matchAll(/<(\w+)>/g)].map(m => m[1])
-      console.log('[rent tags]', tags.join(', '))
-      console.log('[rent sample]', firstItem.slice(0, 300))
-    }
     if (!xml.includes('<item>')) return []
     return (xml.match(/<item>[\s\S]*?<\/item>/g) || []).map(item => {
-      // API 실제 필드명: 월세금액, 보증금액 (한글)
-      const monthly = getTag(item, '월세금액') || getTag(item, 'monthlyRent') || '0'
-      const lease = getTag(item, '보증금액') || getTag(item, 'leaseAmount') || getTag(item, '전세금') || '0'
-      const isMonthly = parseInt(monthly.replace(/,/g, '')) > 0
-      return {
-        dealType: isMonthly ? '월세' : '전세',
-        aptNm: getTag(item, 'aptNm'),
-        aptDong: getTag(item, 'aptDong').trim(),
-        dealAmount: isMonthly
-          ? `보${lease.replace(/,/g, '')}·월${monthly.replace(/,/g, '')}`
-          : lease.replace(/,/g, ''),
-        excluUseAr: getTag(item, 'excluUseAr'),
-        floor: getTag(item, 'floor'),
-        buildYear: getTag(item, 'buildYear'),
-        dealYear: getTag(item, 'dealYear'),
-        dealMonth: getTag(item, 'dealMonth'),
-        dealDay: getTag(item, 'dealDay'),
-        umdNm: getTag(item, 'umdNm'),
+      const nm = getTag(item, nameTag) || getTag(item, 'aptNm') || '(이름없음)'
+      if (dealType === 'rent') {
+        const monthly = getTag(item, '월세금액') || getTag(item, 'monthlyRent') || '0'
+        const lease = getTag(item, '보증금액') || getTag(item, 'leaseAmount') || getTag(item, '전세금') || '0'
+        const isMonthly = parseInt(monthly.replace(/,/g, '')) > 0
+        return {
+          dealType: isMonthly ? '월세' : '전세',
+          propType,
+          aptNm: nm,
+          aptDong: getTag(item, 'aptDong').trim(),
+          dealAmount: isMonthly
+            ? `보${lease.replace(/,/g, '')}·월${monthly.replace(/,/g, '')}`
+            : lease.replace(/,/g, ''),
+          excluUseAr: getTag(item, 'excluUseAr'),
+          floor: getTag(item, 'floor'),
+          buildYear: getTag(item, 'buildYear'),
+          dealYear: getTag(item, 'dealYear'),
+          dealMonth: getTag(item, 'dealMonth'),
+          dealDay: getTag(item, 'dealDay'),
+          umdNm: getTag(item, 'umdNm'),
+        }
+      } else {
+        return {
+          dealType: '매매',
+          propType,
+          aptNm: nm,
+          aptDong: getTag(item, 'aptDong').trim(),
+          dealAmount: getTag(item, 'dealAmount').replace(/,/g, ''),
+          excluUseAr: getTag(item, 'excluUseAr'),
+          floor: getTag(item, 'floor'),
+          buildYear: getTag(item, 'buildYear'),
+          dealYear: getTag(item, 'dealYear'),
+          dealMonth: getTag(item, 'dealMonth'),
+          dealDay: getTag(item, 'dealDay'),
+          umdNm: getTag(item, 'umdNm'),
+        }
       }
     })
   } catch { return [] }
@@ -114,25 +111,24 @@ export async function GET(req: NextRequest) {
   const aptNm = searchParams.get('aptNm')
   const lat = searchParams.get('lat')
   const lng = searchParams.get('lng')
-  const dealType = searchParams.get('dealType') || 'trade' // trade | rent
+  const dealType = searchParams.get('dealType') || 'trade'   // trade | rent
+  const propType = searchParams.get('propType') || 'apt'     // apt | villa | house | officetel
 
   const region = lat && lng ? await getRegionFromCoords(lat, lng) : null
   const lawdCd = region?.lawdCd || SIDO_LAWD[sido] || '11110'
   const filterDong = region?.dongName || null
 
-  const fetcher = dealType === 'rent' ? fetchRent : fetchTrade
-
   try {
     if (aptNm) {
       const months = Array.from({ length: 12 }, (_, i) => getYm(i))
-      const results = await Promise.all(months.map(ym => fetcher(lawdCd, ym)))
+      const results = await Promise.all(months.map(ym => fetchItems(lawdCd, ym, propType, dealType)))
       const all = results.flat().filter(i => i.aptNm === aptNm)
       return NextResponse.json({ items: sortByDate(all), sido, lawdCd, filterDong })
     } else {
       const [m0, m1, m2] = await Promise.all([
-        fetcher(lawdCd, getYm(0)),
-        fetcher(lawdCd, getYm(1)),
-        fetcher(lawdCd, getYm(2)),
+        fetchItems(lawdCd, getYm(0), propType, dealType),
+        fetchItems(lawdCd, getYm(1), propType, dealType),
+        fetchItems(lawdCd, getYm(2), propType, dealType),
       ])
       const all = [...m0, ...m1, ...m2]
       const filtered = filterDong
