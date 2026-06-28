@@ -120,24 +120,34 @@ export async function GET(req: NextRequest) {
 
   try {
     if (aptNm) {
-      // 3년(36개월) - 10개월씩 배치 처리
+      // 개별 건물 히스토리: 3년(36개월)
       const months = Array.from({ length: 36 }, (_, i) => getYm(i))
-      const batchSize = 10
       const all: any[] = []
-      for (let i = 0; i < months.length; i += batchSize) {
-        const batch = months.slice(i, i + batchSize)
+      for (let i = 0; i < months.length; i += 10) {
+        const batch = months.slice(i, i + 10)
         const results = await Promise.all(batch.map(ym => fetchItems(lawdCd, ym, propType, dealType)))
         all.push(...results.flat().filter((item: any) => item.aptNm === aptNm))
       }
       return NextResponse.json({ items: sortByDate(all), sido, lawdCd, filterDong })
     } else {
+      // 리스트/마커용: 기간 제한 없이, 새 단지 안 나오면 조기 종료 (최대 10년)
       async function fetchList(cd: string) {
-        const months = Array.from({ length: 36 }, (_, i) => getYm(i))
         const all: any[] = []
-        for (let i = 0; i < months.length; i += 10) {
-          const batch = months.slice(i, i + 10)
+        const seen = new Set<string>()
+        let noNewBatches = 0
+        for (let i = 0; i < 120; i += 10) {
+          const batch = Array.from({ length: 10 }, (_, j) => getYm(i + j))
           const results = await Promise.all(batch.map(ym => fetchItems(cd, ym, propType, dealType)))
-          all.push(...results.flat())
+          const flat = results.flat()
+          const prevSize = seen.size
+          flat.forEach(item => seen.add(item.aptNm))
+          all.push(...flat)
+          if (seen.size === prevSize) {
+            noNewBatches++
+            if (noNewBatches >= 2) break  // 연속 2배치(20개월)에서 새 단지 없으면 종료
+          } else {
+            noNewBatches = 0
+          }
         }
         return all
       }
