@@ -120,9 +120,15 @@ export async function GET(req: NextRequest) {
 
   try {
     if (aptNm) {
-      const months = Array.from({ length: 12 }, (_, i) => getYm(i))
-      const results = await Promise.all(months.map(ym => fetchItems(lawdCd, ym, propType, dealType)))
-      const all = results.flat().filter(i => i.aptNm === aptNm)
+      // 5년(60개월) - 10개월씩 배치 처리
+      const months = Array.from({ length: 60 }, (_, i) => getYm(i))
+      const batchSize = 10
+      const all: any[] = []
+      for (let i = 0; i < months.length; i += batchSize) {
+        const batch = months.slice(i, i + batchSize)
+        const results = await Promise.all(batch.map(ym => fetchItems(lawdCd, ym, propType, dealType)))
+        all.push(...results.flat().filter((item: any) => item.aptNm === aptNm))
+      }
       return NextResponse.json({ items: sortByDate(all), sido, lawdCd, filterDong })
     } else {
       const [m0, m1, m2] = await Promise.all([
