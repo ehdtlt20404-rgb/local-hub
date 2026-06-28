@@ -12,20 +12,32 @@ function parseItems(data: any): any[] {
   } catch { return [] }
 }
 
-// 정류소 이름으로 nodeId 검색
-async function getNodeId(nodeName: string): Promise<string | null> {
-  try {
-    const res = await axios.get(
-      'https://apis.data.go.kr/6300000/BusSttnInfoInqireService/getSttnThrghRouteList',
-      {
-        params: { serviceKey: KEY, nodeNm: nodeName, _type: 'json' },
-        timeout: 8000,
+// 정류소 이름으로 nodeId 검색 (여러 변형 시도)
+async function getNodeId(nodeName: string): Promise<{ nodeId: string; foundName: string } | null> {
+  // 검색할 이름 변형 목록 (긴 것 → 짧은 것 순)
+  const variants = [
+    nodeName,
+    nodeName.replace(/\(.*?\)/g, '').trim(),        // 괄호 제거
+    nodeName.replace(/(네거리|사거리|앞|역|정류장).*/, '$1'), // 접미사까지만
+    nodeName.slice(0, Math.ceil(nodeName.length * 0.6)), // 앞 60%
+    nodeName.slice(0, 4),                            // 앞 4글자
+  ].filter((v, i, arr) => v.length >= 2 && arr.indexOf(v) === i)
+
+  for (const name of variants) {
+    try {
+      const res = await axios.get(
+        'https://apis.data.go.kr/6300000/BusSttnInfoInqireService/getSttnThrghRouteList',
+        { params: { serviceKey: KEY, nodeNm: name, _type: 'json' }, timeout: 8000 }
+      )
+      const items = parseItems(res.data)
+      if (items.length > 0) {
+        const nodeId = items[0].nodeid || items[0].nodeId
+        const foundName = items[0].nodenm || items[0].nodeNm || name
+        if (nodeId) return { nodeId, foundName }
       }
-    )
-    const items = parseItems(res.data)
-    if (items.length === 0) return null
-    return items[0].nodeid || items[0].nodeId || null
-  } catch { return null }
+    } catch { continue }
+  }
+  return null
 }
 
 // nodeId로 도착 정보 조회
@@ -49,13 +61,15 @@ export async function GET(req: NextRequest) {
 
   try {
     let nodeId = nodeIdParam
+    let foundName = nodeName
 
     if (!nodeId && nodeName) {
       const found = await getNodeId(nodeName)
       if (!found) {
         return NextResponse.json({ arrivals: [], error: `'${nodeName}' 정류장을 찾을 수 없어요` })
       }
-      nodeId = found
+      nodeId = found.nodeId
+      foundName = found.foundName
     }
 
     if (!nodeId) return NextResponse.json({ arrivals: [], error: 'nodeId 없음' })
@@ -71,7 +85,7 @@ export async function GET(req: NextRequest) {
     .filter(a => a.arrTime !== null)
     .sort((a, b) => (a.arrTime ?? 999999) - (b.arrTime ?? 999999))
 
-    return NextResponse.json({ arrivals: result, nodeId })
+    return NextResponse.json({ arrivals: result, nodeId, foundName })
   } catch (e: any) {
     return NextResponse.json({ arrivals: [], error: e.message })
   }
