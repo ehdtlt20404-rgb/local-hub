@@ -531,6 +531,10 @@ export default function HomePage() {
 
           <main style={{ flex: 1, position: 'relative', minWidth: 0 }}>
             <Map lat={lat} lng={lng} address={address} onMapClick={handleMapClick}
+              onMapMove={activeTab === 'realestate' ? (mLat, mLng) => {
+                setLat(mLat)
+                setLng(mLng)
+              } : undefined}
               places={activeTab === 'places' ? mapPlaces : []}
               priceMarkers={activeTab === 'realestate' ? priceMarkers : []}
               highlightedApt={highlightedApt}

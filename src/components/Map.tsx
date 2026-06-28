@@ -1,5 +1,5 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, CircleMarker } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -45,21 +45,43 @@ function createPriceIcon(price: string, dealType: string, highlighted: boolean) 
   })
 }
 
-function MapEvents({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
-  useMapEvents({ click(e) { onMapClick(e.latlng.lat, e.latlng.lng) } })
+function MapEvents({ onMapClick, onMapMove }: { onMapClick: (lat: number, lng: number) => void; onMapMove?: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) { onMapClick(e.latlng.lat, e.latlng.lng) },
+    moveend(e) {
+      const center = e.target.getCenter()
+      onMapMove?.(center.lat, center.lng)
+    },
+  })
   return null
 }
 
 function MapCenter({ lat, lng, focusLat, focusLng }: { lat: number; lng: number; focusLat?: number; focusLng?: number }) {
   const map = useMap()
-  useEffect(() => { map.setView([lat, lng], map.getZoom()) }, [lat, lng])
+  // focusLat/focusLng: 마커/아파트 클릭으로 강제 이동
   useEffect(() => { if (focusLat && focusLng) map.setView([focusLat, focusLng], 17) }, [focusLat, focusLng])
+  // lat/lng: 지도 드래그 moveend로 변경된 경우 이미 지도가 거기 있으므로 무시
+  // 검색/내 위치 등 외부 변경만 반영 (focusLat/focusLng 없는 경우)
+  const prevLatRef = useRef(lat)
+  const prevLngRef = useRef(lng)
+  useEffect(() => {
+    const center = map.getCenter()
+    const moved = Math.abs(center.lat - lat) > 0.0001 || Math.abs(center.lng - lng) > 0.0001
+    const changed = lat !== prevLatRef.current || lng !== prevLngRef.current
+    prevLatRef.current = lat
+    prevLngRef.current = lng
+    // 지도 현재 중심과 다른 경우만 이동 (드래그 후 state 업데이트는 무시)
+    if (changed && moved && Math.abs(center.lat - lat) > 0.001) {
+      map.setView([lat, lng], map.getZoom())
+    }
+  }, [lat, lng])
   return null
 }
 
 interface Props {
   lat: number; lng: number; address: string
   onMapClick: (lat: number, lng: number) => void
+  onMapMove?: (lat: number, lng: number) => void
   places?: Place[]
   priceMarkers?: PriceMarker[]
   highlightedApt?: string | null
@@ -68,7 +90,7 @@ interface Props {
   focusLng?: number
 }
 
-export default function Map({ lat, lng, address, onMapClick, places = [], priceMarkers = [], highlightedApt, onPriceMarkerClick, focusLat, focusLng }: Props) {
+export default function Map({ lat, lng, address, onMapClick, onMapMove, places = [], priceMarkers = [], highlightedApt, onPriceMarkerClick, focusLat, focusLng }: Props) {
   return (
     <MapContainer key="map" center={[lat, lng]} zoom={15} style={{ width: '100%', height: '100%' }}>
       <TileLayer
@@ -126,7 +148,7 @@ export default function Map({ lat, lng, address, onMapClick, places = [], priceM
         )
       })}
 
-      <MapEvents onMapClick={onMapClick} />
+      <MapEvents onMapClick={onMapClick} onMapMove={onMapMove} />
       <MapCenter lat={lat} lng={lng} focusLat={focusLat} focusLng={focusLng} />
     </MapContainer>
   )
