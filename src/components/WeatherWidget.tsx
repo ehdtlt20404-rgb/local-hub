@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Droplets, Wind, CloudRain } from 'lucide-react'
 
-interface WeatherData { temp: string; humidity: string; rain: string; wind: string; sky: string }
+interface WeatherData { temp: string; humidity: string; rain: string; wind: string; sky: string; error?: string }
 
 const SKY_INFO: Record<string, { emoji: string; label: string }> = {
   '0': { emoji: '☀️', label: '맑음' }, '1': { emoji: '☀️', label: '맑음' },

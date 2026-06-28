@@ -1,9 +1,12 @@
 'use client'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { MapPin, Search, Navigation, ChevronDown, X, Map as MapIcon, Bookmark, BookmarkCheck } from 'lucide-react'
 import { useFavorites } from '@/hooks/useFavorites'
+import { useRecentPlaces } from '@/hooks/useRecentPlaces'
 import WeatherWidget from '@/components/WeatherWidget'
+import NeighborhoodScore from '@/components/NeighborhoodScore'
+import CompareModal from '@/components/CompareModal'
 import DustWidget from '@/components/DustWidget'
 import ForecastWidget from '@/components/ForecastWidget'
 import PlacesWidget from '@/components/PlacesWidget'
@@ -78,6 +81,9 @@ export default function HomePage() {
   const [sido, setSido] = useState('서울')
   const [activeTab, setActiveTab] = useState<TabId>('weather')
   const [searching, setSearching] = useState(false)
+  const [suggestions, setSuggestions] = useState<{ name: string; lat: number; lng: number; province: string }[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [mapPlaces, setMapPlaces] = useState<any[]>([])
   const [priceMarkers, setPriceMarkers] = useState<any[]>([])
   const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number } | null>(null)
@@ -89,6 +95,9 @@ export default function HomePage() {
   const [isMobile, setIsMobile] = useState(false)
   const [mobileView, setMobileView] = useState<'info' | 'map'>('info')
   const { favorites, add: addFav, remove: removeFav, isSaved } = useFavorites()
+  const { places: recentPlaces, add: addRecent, remove: removeRecent, clear: clearRecent } = useRecentPlaces()
+  const [showCompareModal, setShowCompareModal] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   async function handleRealEstateItems(items: any[]) {
     const top = items.slice(0, 50)
@@ -122,6 +131,115 @@ export default function HomePage() {
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
   }, [])
+
+  // URL params로 위치 복원
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const pLat = parseFloat(params.get('lat') || '')
+    const pLng = parseFloat(params.get('lng') || '')
+    const pAddr = params.get('address')
+    const pSido = params.get('sido')
+    if (!isNaN(pLat) && !isNaN(pLng)) {
+      setLat(pLat); setLng(pLng)
+      if (pAddr) setAddress(decodeURIComponent(pAddr))
+      if (pSido) setSido(decodeURIComponent(pSido))
+    }
+  }, [])
+
+  // 위치 변경 시 최근 동네 저장
+  useEffect(() => {
+    if (address && address !== '서울특별시 중구' && address !== '주소 불러오는 중...' && address !== '현재 위치') {
+      addRecent({ name: address, lat, lng, sido })
+    }
+  }, [address])
+
+  // 공유 URL 복사
+  function handleShareUrl() {
+    const url = `${window.location.origin}?lat=${lat}&lng=${lng}&address=${encodeURIComponent(address)}&sido=${encodeURIComponent(sido)}`
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  // 공유 카드 생성
+  function handleShareCard() {
+    const canvas = document.createElement('canvas')
+    canvas.width = 600; canvas.height = 340
+    const ctx = canvas.getContext('2d')!
+
+    // 배경
+    ctx.fillStyle = '#0f172a'
+    ctx.fillRect(0, 0, 600, 340)
+
+    // 그라디언트 장식
+    const grad = ctx.createLinearGradient(0, 0, 600, 340)
+    grad.addColorStop(0, 'rgba(59,130,246,0.15)')
+    grad.addColorStop(1, 'rgba(139,92,246,0.08)')
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, 600, 340)
+
+    // 테두리
+    ctx.strokeStyle = 'rgba(59,130,246,0.3)'
+    ctx.lineWidth = 1.5
+    ctx.roundRect(2, 2, 596, 336, 16)
+    ctx.stroke()
+
+    // 로고
+    ctx.fillStyle = 'white'
+    ctx.font = 'bold 14px sans-serif'
+    ctx.fillText('📍 동네허브', 24, 36)
+
+    // 주소
+    ctx.fillStyle = 'white'
+    ctx.font = 'bold 22px sans-serif'
+    ctx.fillText(address.length > 24 ? address.slice(0, 24) + '...' : address, 24, 80)
+
+    // 좌표
+    ctx.fillStyle = '#475569'
+    ctx.font = '12px sans-serif'
+    ctx.fillText(`${lat.toFixed(4)}°N · ${lng.toFixed(4)}°E`, 24, 102)
+
+    // 구분선
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)'
+    ctx.lineWidth = 1
+    ctx.beginPath(); ctx.moveTo(24, 120); ctx.lineTo(576, 120); ctx.stroke()
+
+    // 정보 박스들
+    const boxes = [
+      { label: '시·도', value: sido, color: '#3b82f6' },
+      { label: '위도', value: lat.toFixed(4) + '°', color: '#10b981' },
+      { label: '경도', value: lng.toFixed(4) + '°', color: '#8b5cf6' },
+    ]
+    boxes.forEach((box, i) => {
+      const x = 24 + i * 186
+      ctx.fillStyle = 'rgba(255,255,255,0.04)'
+      ctx.roundRect(x, 132, 174, 72, 8)
+      ctx.fill()
+      ctx.fillStyle = '#64748b'
+      ctx.font = '10px sans-serif'
+      ctx.fillText(box.label, x + 12, 152)
+      ctx.fillStyle = box.color
+      ctx.font = 'bold 18px sans-serif'
+      ctx.fillText(box.value, x + 12, 182)
+    })
+
+    // 하단 URL
+    ctx.fillStyle = '#1e3a5f'
+    ctx.font = '11px sans-serif'
+    ctx.fillText('dongnehub.com', 24, 310)
+
+    ctx.fillStyle = '#334155'
+    ctx.font = '10px sans-serif'
+    const shareUrl = `dongnehub.com?lat=${lat.toFixed(4)}&lng=${lng.toFixed(4)}`
+    ctx.fillText(shareUrl, 24, 328)
+
+    // 다운로드
+    const link = document.createElement('a')
+    link.download = `동네허브_${address.replace(/\s/g, '_')}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  }
 
 
   const grid = latlngToGrid(lat, lng)
@@ -166,9 +284,36 @@ export default function HomePage() {
     })
   }
 
+  function handleSearchInputChange(val: string) {
+    setSearchInput(val)
+    if (suggestTimer.current) clearTimeout(suggestTimer.current)
+    if (!val.trim()) { setSuggestions([]); setShowSuggestions(false); return }
+    suggestTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/suggest?q=${encodeURIComponent(val)}`)
+        const data = await res.json()
+        setSuggestions(data)
+        setShowSuggestions(data.length > 0)
+      } catch {}
+    }, 250)
+  }
+
+  function applySuggestion(s: { name: string; lat: number; lng: number; province: string }) {
+    setSearchInput(s.name)
+    setLat(s.lat)
+    setLng(s.lng)
+    setAddress(s.name)
+    const matched = SIDO_LIST.find(sido => s.province.includes(sido) || s.name.includes(sido))
+    if (matched) setSido(matched)
+    setSuggestions([])
+    setShowSuggestions(false)
+  }
+
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault()
     if (!searchInput.trim()) return
+    setShowSuggestions(false)
+    if (suggestions.length > 0) { applySuggestion(suggestions[0]); return }
     setSearching(true)
     try {
       const res = await fetch(`/api/geocode?q=${encodeURIComponent(searchInput)}`)
@@ -201,6 +346,29 @@ export default function HomePage() {
           <WeatherWidget nx={grid.nx} ny={grid.ny} />
           <ForecastWidget nx={grid.nx} ny={grid.ny} />
           <DustWidget sido={sido} />
+          <NeighborhoodScore lat={lat} lng={lng} sido={sido} nx={grid.nx} ny={grid.ny} />
+          {/* 공유 버튼들 */}
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button onClick={handleShareUrl} style={{
+              flex: 1, padding: '8px', borderRadius: 9, border: '1px solid rgba(59,130,246,0.25)',
+              background: copied ? 'rgba(52,211,153,0.12)' : 'rgba(59,130,246,0.08)',
+              color: copied ? '#34d399' : '#60a5fa', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            }}>
+              {copied ? '✅ 복사됨!' : '🔗 이 동네 URL 공유'}
+            </button>
+            <button onClick={handleShareCard} style={{
+              flex: 1, padding: '8px', borderRadius: 9, border: '1px solid rgba(139,92,246,0.25)',
+              background: 'rgba(139,92,246,0.08)', color: '#c4b5fd', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+            }}>
+              🖼 정보 카드 저장
+            </button>
+          </div>
+          <button onClick={() => setShowCompareModal(true)} style={{
+            width: '100%', padding: '8px', borderRadius: 9, border: '1px solid rgba(234,179,8,0.25)',
+            background: 'rgba(234,179,8,0.08)', color: '#fbbf24', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+          }}>
+            🆚 다른 동네와 비교하기
+          </button>
         </div>
       )}
       {activeTab === 'places' && <PlacesWidget lat={lat} lng={lng} onPlacesChange={setMapPlaces} />}
@@ -230,7 +398,7 @@ export default function HomePage() {
             <p style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>별표 버튼으로 현재 위치를 저장하세요</p>
           </div>
           {favorites.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '32px 0', color: '#475569', fontSize: 13 }}>
+            <div style={{ textAlign: 'center', padding: '24px 0', color: '#475569', fontSize: 13 }}>
               <div style={{ fontSize: 28, marginBottom: 6 }}>📍</div>
               저장된 위치가 없어요
             </div>
@@ -250,6 +418,30 @@ export default function HomePage() {
                 >삭제</button>
               </div>
             ))
+          )}
+
+          {/* 최근 본 동네 */}
+          {recentPlaces.length > 0 && (
+            <>
+              <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: '10px 14px', marginTop: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#818cf8' }}>🕐 최근 본 동네</p>
+                  <button onClick={clearRecent} style={{ fontSize: 10, color: '#475569', background: 'none', border: 'none', cursor: 'pointer' }}>전체삭제</button>
+                </div>
+              </div>
+              {recentPlaces.map(r => (
+                <div key={r.timestamp} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button
+                    onClick={() => { setLat(r.lat); setLng(r.lng); setAddress(r.name); setSido(r.sido) }}
+                    style={{ flex: 1, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                  >
+                    <p style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1', marginBottom: 2 }}>{r.name}</p>
+                    <p style={{ fontSize: 10, color: '#334155' }}>{r.sido} · {new Date(r.timestamp).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}</p>
+                  </button>
+                  <button onClick={() => removeRecent(r.timestamp)} style={{ background: 'none', border: 'none', color: '#334155', cursor: 'pointer', fontSize: 13, padding: '2px 4px' }}>✕</button>
+                </div>
+              ))}
+            </>
           )}
         </div>
       )}
@@ -289,27 +481,51 @@ export default function HomePage() {
         </div>
 
         <form onSubmit={handleSearch} style={{ flex: 1, maxWidth: isMobile ? '100%' : 440, position: 'relative' }}>
-          <Search size={13} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#475569', pointerEvents: 'none' }} />
+          <Search size={13} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#475569', pointerEvents: 'none', zIndex: 1 }} />
           <input
             value={searchInput}
-            onChange={e => setSearchInput(e.target.value)}
+            onChange={e => handleSearchInputChange(e.target.value)}
             placeholder="동네 검색..."
             style={{
               width: '100%', paddingLeft: 32, paddingRight: searchInput ? 28 : 10,
               paddingTop: 8, paddingBottom: 8, border: '1px solid rgba(255,255,255,0.09)',
-              borderRadius: 10, fontSize: 13, outline: 'none',
+              borderRadius: showSuggestions ? '10px 10px 0 0' : 10, fontSize: 13, outline: 'none',
               background: 'rgba(255,255,255,0.06)', color: 'white', transition: 'border-color 0.15s',
             }}
-            onFocus={e => (e.target.style.borderColor = 'rgba(59,130,246,0.55)')}
-            onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.09)')}
+            onFocus={e => { e.target.style.borderColor = 'rgba(59,130,246,0.55)'; if (suggestions.length > 0) setShowSuggestions(true) }}
+            onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.09)'; setTimeout(() => setShowSuggestions(false), 150) }}
           />
           {searchInput && !searching && (
-            <button type="button" onClick={() => setSearchInput('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#475569', lineHeight: 1 }}>
+            <button type="button" onClick={() => { setSearchInput(''); setSuggestions([]); setShowSuggestions(false) }} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#475569', lineHeight: 1, zIndex: 1 }}>
               <X size={12} />
             </button>
           )}
           {searching && (
-            <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, border: '2px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+            <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 13, height: 13, border: '2px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite', zIndex: 1 }} />
+          )}
+          {showSuggestions && suggestions.length > 0 && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 500,
+              background: 'rgba(15,23,42,0.98)', backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(59,130,246,0.3)', borderTop: 'none',
+              borderRadius: '0 0 10px 10px', overflow: 'hidden',
+            }}>
+              {suggestions.map((s, i) => (
+                <button key={i} type="button" onMouseDown={() => applySuggestion(s)} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+                  padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer',
+                  borderBottom: i < suggestions.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                  color: 'white',
+                }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.12)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                >
+                  <span style={{ fontSize: 11, color: '#64748b', flexShrink: 0 }}>📍</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+                  {s.province && <span style={{ fontSize: 10, color: '#475569', flexShrink: 0 }}>{s.province}</span>}
+                </button>
+              ))}
+            </div>
           )}
         </form>
 
@@ -574,6 +790,13 @@ export default function HomePage() {
             </div>
           </main>
         </div>
+      )}
+
+      {showCompareModal && (
+        <CompareModal
+          current={{ name: address, lat, lng, sido }}
+          onClose={() => setShowCompareModal(false)}
+        />
       )}
     </div>
   )

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap, CircleMarker } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -45,6 +45,141 @@ function createPriceIcon(price: string, dealType: string, highlighted: boolean) 
   })
 }
 
+function createClusterIcon(count: number, dealType: string) {
+  const color = DEAL_COLOR[dealType] || '#34d399'
+  const bg = dealType === '매매' ? '#064e3b' : dealType === '전세' ? '#1e3a5f' : '#451a03'
+  const size = count >= 20 ? 46 : count >= 10 ? 42 : 38
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};border:2.5px solid ${color};display:flex;align-items:center;justify-content:center;flex-direction:column;box-shadow:0 3px 14px rgba(0,0,0,0.7);color:${color}">
+      <span style="font-size:15px;font-weight:900;line-height:1">${count}</span>
+      <span style="font-size:8px;opacity:0.75">단지</span>
+    </div>`,
+    iconAnchor: [size / 2, size / 2],
+    iconSize: [size, size],
+  })
+}
+
+// 줌 레벨에 따른 클러스터 셀 크기 (위경도 단위)
+function cellSize(zoom: number) {
+  if (zoom >= 15) return 0.003
+  if (zoom >= 13) return 0.007
+  if (zoom >= 11) return 0.02
+  return 0.06
+}
+
+interface ClusterGroup {
+  key: string
+  markers: PriceMarker[]
+  lat: number
+  lng: number
+}
+
+function clusterMarkers(markers: PriceMarker[], zoom: number): ClusterGroup[] {
+  const cs = cellSize(zoom)
+  const cells: Record<string, PriceMarker[]> = {}
+  for (const pm of markers) {
+    const key = `${Math.floor(pm.lat / cs)}_${Math.floor(pm.lng / cs)}`
+    if (!cells[key]) cells[key] = []
+    cells[key].push(pm)
+  }
+  return Object.entries(cells).map(([key, group]) => ({
+    key,
+    markers: group,
+    lat: group.reduce((s: number, p: PriceMarker) => s + p.lat, 0) / group.length,
+    lng: group.reduce((s: number, p: PriceMarker) => s + p.lng, 0) / group.length,
+  }))
+}
+
+function PriceMarkerLayer({ priceMarkers, highlightedApt, onPriceMarkerClick }: {
+  priceMarkers: PriceMarker[]
+  highlightedApt?: string | null
+  onPriceMarkerClick?: (name: string) => void
+}) {
+  const map = useMap()
+  const [zoom, setZoom] = useState(map.getZoom())
+
+  useMapEvents({
+    zoomend: () => setZoom(map.getZoom()),
+  })
+
+  const groups = clusterMarkers(priceMarkers, zoom)
+
+  return (
+    <>
+      {/* 클러스터 그룹: 하이라이트 안된 것 먼저 */}
+      {[
+        ...groups.filter(g => !g.markers.some(m => m.name === highlightedApt)),
+        ...groups.filter(g => g.markers.some(m => m.name === highlightedApt)),
+      ].map(group => {
+        if (group.markers.length === 1) {
+          const pm = group.markers[0]
+          const isHighlighted = pm.name === highlightedApt
+          return (
+            <Marker
+              key={group.key}
+              position={[pm.lat, pm.lng]}
+              icon={createPriceIcon(pm.price, pm.dealType, isHighlighted)}
+              eventHandlers={{ click: () => onPriceMarkerClick?.(pm.name) }}
+              zIndexOffset={isHighlighted ? 1000 : 0}
+            >
+              <Popup minWidth={160}>
+                <div style={{ fontSize: 12 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 3 }}>{pm.name}</div>
+                  <div style={{ color: DEAL_COLOR[pm.dealType] || '#34d399', fontWeight: 700, marginBottom: 8 }}>{pm.dealType} {pm.price}</div>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <a href={`https://search.naver.com/search.naver?query=${encodeURIComponent(pm.name + ' 아파트')}`} target="_blank" rel="noreferrer"
+                      style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#166534', color: '#4ade80', borderRadius: 5, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>
+                      네이버
+                    </a>
+                    <a href={`https://www.zigbang.com/home/apt/search?q=${encodeURIComponent(pm.name)}`} target="_blank" rel="noreferrer"
+                      style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#1e3a5f', color: '#60a5fa', borderRadius: 5, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>
+                      직방
+                    </a>
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          )
+        }
+
+        // 클러스터 마커 (여러 단지)
+        const dominantDeal = group.markers.reduce<Record<string, number>>((acc, m) => {
+          acc[m.dealType] = (acc[m.dealType] || 0) + 1
+          return acc
+        }, {})
+        const dealType = Object.entries(dominantDeal).sort((a, b) => b[1] - a[1])[0][0]
+        const isHighlighted = group.markers.some(m => m.name === highlightedApt)
+
+        return (
+          <Marker
+            key={group.key}
+            position={[group.lat, group.lng]}
+            icon={createClusterIcon(group.markers.length, dealType)}
+            zIndexOffset={isHighlighted ? 500 : 0}
+          >
+            <Popup minWidth={180} maxHeight={200}>
+              <div style={{ fontSize: 11 }}>
+                <div style={{ fontWeight: 800, fontSize: 12, marginBottom: 6 }}>단지 {group.markers.length}개</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 160, overflowY: 'auto' }}>
+                  {group.markers.map(pm => (
+                    <div key={pm.name} style={{ cursor: 'pointer', padding: '3px 0', borderBottom: '1px solid rgba(0,0,0,0.07)' }}
+                      onClick={() => { onPriceMarkerClick?.(pm.name) }}>
+                      <span style={{ fontWeight: 700 }}>{pm.name}</span>
+                      <span style={{ color: DEAL_COLOR[pm.dealType] || '#34d399', marginLeft: 6, fontSize: 10 }}>{pm.dealType} {pm.price}</span>
+                    </div>
+                  ))}
+                </div>
+                <p style={{ fontSize: 9, color: '#888', marginTop: 4 }}>줌인하면 개별 마커로 표시돼요</p>
+              </div>
+            </Popup>
+          </Marker>
+        )
+      })}
+    </>
+  )
+}
+
 function MapEvents({ onMapClick, onMapMove }: { onMapClick: (lat: number, lng: number) => void; onMapMove?: (lat: number, lng: number) => void }) {
   useMapEvents({
     click(e) { onMapClick(e.latlng.lat, e.latlng.lng) },
@@ -58,10 +193,7 @@ function MapEvents({ onMapClick, onMapMove }: { onMapClick: (lat: number, lng: n
 
 function MapCenter({ lat, lng, focusLat, focusLng }: { lat: number; lng: number; focusLat?: number; focusLng?: number }) {
   const map = useMap()
-  // focusLat/focusLng: 마커/아파트 클릭으로 강제 이동
   useEffect(() => { if (focusLat && focusLng) map.setView([focusLat, focusLng], 17) }, [focusLat, focusLng])
-  // lat/lng: 지도 드래그 moveend로 변경된 경우 이미 지도가 거기 있으므로 무시
-  // 검색/내 위치 등 외부 변경만 반영 (focusLat/focusLng 없는 경우)
   const prevLatRef = useRef(lat)
   const prevLngRef = useRef(lng)
   useEffect(() => {
@@ -70,7 +202,6 @@ function MapCenter({ lat, lng, focusLat, focusLng }: { lat: number; lng: number;
     const changed = lat !== prevLatRef.current || lng !== prevLngRef.current
     prevLatRef.current = lat
     prevLngRef.current = lng
-    // 지도 현재 중심과 다른 경우만 이동 (드래그 후 state 업데이트는 무시)
     if (changed && moved && Math.abs(center.lat - lat) > 0.001) {
       map.setView([lat, lng], map.getZoom())
     }
@@ -117,36 +248,13 @@ export default function Map({ lat, lng, address, onMapClick, onMapMove, places =
         </CircleMarker>
       ))}
 
-      {/* 하이라이트 안된 것 먼저, 하이라이트된 것 나중에 (z-index 위로) */}
-      {[...priceMarkers.filter(pm => pm.name !== highlightedApt), ...priceMarkers.filter(pm => pm.name === highlightedApt)].map((pm, i) => {
-        const isHighlighted = pm.name === highlightedApt
-        return (
-          <Marker
-            key={pm.name + i}
-            position={[pm.lat, pm.lng]}
-            icon={createPriceIcon(pm.price, pm.dealType, isHighlighted)}
-            eventHandlers={{ click: () => onPriceMarkerClick?.(pm.name) }}
-            zIndexOffset={isHighlighted ? 1000 : 0}
-          >
-            <Popup minWidth={160}>
-              <div style={{ fontSize: 12 }}>
-                <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 3 }}>{pm.name}</div>
-                <div style={{ color: DEAL_COLOR[pm.dealType] || '#34d399', fontWeight: 700, marginBottom: 8 }}>{pm.dealType} {pm.price}</div>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <a href={`https://search.naver.com/search.naver?query=${encodeURIComponent(pm.name + ' 아파트')}`} target="_blank" rel="noreferrer"
-                    style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#166534', color: '#4ade80', borderRadius: 5, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>
-                    네이버
-                  </a>
-                  <a href={`https://www.zigbang.com/home/apt/search?q=${encodeURIComponent(pm.name)}`} target="_blank" rel="noreferrer"
-                    style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#1e3a5f', color: '#60a5fa', borderRadius: 5, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>
-                    직방
-                  </a>
-                </div>
-              </div>
-            </Popup>
-          </Marker>
-        )
-      })}
+      {priceMarkers.length > 0 && (
+        <PriceMarkerLayer
+          priceMarkers={priceMarkers}
+          highlightedApt={highlightedApt}
+          onPriceMarkerClick={onPriceMarkerClick}
+        />
+      )}
 
       <MapEvents onMapClick={onMapClick} onMapMove={onMapMove} />
       <MapCenter lat={lat} lng={lng} focusLat={focusLat} focusLng={focusLng} />

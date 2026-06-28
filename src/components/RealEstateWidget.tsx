@@ -1,6 +1,6 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { Calendar, ArrowLeft, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { Calendar, ArrowLeft, TrendingUp, TrendingDown, Minus, ArrowUpDown } from 'lucide-react'
 
 interface TradeItem {
   dealType: string; propType: string; aptNm: string; aptDong: string
@@ -10,6 +10,8 @@ interface TradeItem {
 
 type DealTab = 'trade' | 'rent'
 type PropType = 'apt' | 'villa' | 'house' | 'officetel'
+type SortBy = 'name' | 'latest' | 'price_asc' | 'price_desc' | 'area'
+type PyeongFilter = 'all' | '~10' | '10-20' | '20-30' | '30+'
 
 const PROP_TYPES: { id: PropType; label: string; emoji: string; color: string }[] = [
   { id: 'apt',       label: '아파트',   emoji: '🏢', color: '#3b82f6' },
@@ -21,6 +23,22 @@ const PROP_TYPES: { id: PropType; label: string; emoji: string; color: string }[
 const DEAL_TYPE_COLOR: Record<string, string> = {
   '매매': '#34d399', '전세': '#60a5fa', '월세': '#f59e0b',
 }
+
+const PYEONG_LABELS: { id: PyeongFilter; label: string }[] = [
+  { id: 'all', label: '전체' },
+  { id: '~10', label: '~10평' },
+  { id: '10-20', label: '10-20평' },
+  { id: '20-30', label: '20-30평' },
+  { id: '30+', label: '30평+' },
+]
+
+const SORT_OPTIONS: { id: SortBy; label: string }[] = [
+  { id: 'name', label: '이름순' },
+  { id: 'latest', label: '최신순' },
+  { id: 'price_desc', label: '가격↓' },
+  { id: 'price_asc', label: '가격↑' },
+  { id: 'area', label: '면적순' },
+]
 
 function formatPrice(amount: string, dealType: string) {
   if (dealType === '월세') {
@@ -55,6 +73,37 @@ function formatDate(y: string, m: string, d: string) {
 function pyeong(ar: string) {
   const n = parseFloat(ar)
   return isNaN(n) ? '' : `${Math.round(n / 3.3058)}평`
+}
+
+function pyeongNum(ar: string) {
+  const n = parseFloat(ar)
+  return isNaN(n) ? 0 : Math.round(n / 3.3058)
+}
+
+function matchesPyeong(item: TradeItem, filter: PyeongFilter) {
+  if (filter === 'all') return true
+  const p = pyeongNum(item.excluUseAr)
+  if (p === 0) return true
+  if (filter === '~10') return p < 10
+  if (filter === '10-20') return p >= 10 && p < 20
+  if (filter === '20-30') return p >= 20 && p < 30
+  if (filter === '30+') return p >= 30
+  return true
+}
+
+function sortItems(items: TradeItem[], sortBy: SortBy) {
+  return [...items].sort((a, b) => {
+    if (sortBy === 'name') return a.aptNm.localeCompare(b.aptNm, 'ko')
+    if (sortBy === 'latest') {
+      const da = `${a.dealYear}${String(a.dealMonth).padStart(2,'0')}${String(a.dealDay).padStart(2,'0')}`
+      const db = `${b.dealYear}${String(b.dealMonth).padStart(2,'0')}${String(b.dealDay).padStart(2,'0')}`
+      return db.localeCompare(da)
+    }
+    if (sortBy === 'price_desc') return rawNum(b.dealAmount) - rawNum(a.dealAmount)
+    if (sortBy === 'price_asc') return rawNum(a.dealAmount) - rawNum(b.dealAmount)
+    if (sortBy === 'area') return pyeongNum(b.excluUseAr) - pyeongNum(a.excluUseAr)
+    return 0
+  })
 }
 
 function TradeRow({ item, onClick }: { item: TradeItem; onClick?: () => void }) {
@@ -175,6 +224,7 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
   const [propType, setPropType] = useState<PropType>('apt')
   const [items, setItems] = useState<TradeItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingFull, setLoadingFull] = useState(false)
   const [filterDong, setFilterDong] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [history, setHistory] = useState<TradeItem[]>([])
@@ -182,22 +232,51 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
   const [showCompare, setShowCompare] = useState(false)
   const [compareData, setCompareData] = useState<{ city: string; avg: number }[]>([])
   const [compareLoading, setCompareLoading] = useState(false)
+  const [pyeongFilter, setPyeongFilter] = useState<PyeongFilter>('all')
+  const [sortBy, setSortBy] = useState<SortBy>('name')
+  const [showSortMenu, setShowSortMenu] = useState(false)
+  const fullFetchRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     setLoading(true)
+    setLoadingFull(false)
     onLoadingChange?.(true)
     setSelected(null)
-    fetch(`/api/realestate?sido=${encodeURIComponent(sido)}&lat=${lat}&lng=${lng}&dealType=${dealTab}&propType=${propType}`)
+    setItems([])
+
+    // abort any in-progress full fetch
+    fullFetchRef.current?.abort()
+
+    // 1단계: 빠른 3개월 데이터 먼저 표시
+    const quickUrl = `/api/realestate?sido=${encodeURIComponent(sido)}&lat=${lat}&lng=${lng}&dealType=${dealTab}&propType=${propType}&quick=true`
+    fetch(quickUrl)
       .then(r => r.json())
       .then(d => {
-        const loaded = d.items || []
-        setItems(loaded)
+        const quickItems = d.items || []
+        setItems(quickItems)
         setFilterDong(d.filterDong || '')
         setLoading(false)
         onLoadingChange?.(false)
-        onItemsChange?.(loaded)
+        onItemsChange?.(quickItems)
+
+        // 2단계: 전체 데이터 백그라운드 로딩
+        const ctrl = new AbortController()
+        fullFetchRef.current = ctrl
+        setLoadingFull(true)
+        const fullUrl = `/api/realestate?sido=${encodeURIComponent(sido)}&lat=${lat}&lng=${lng}&dealType=${dealTab}&propType=${propType}`
+        fetch(fullUrl, { signal: ctrl.signal })
+          .then(r => r.json())
+          .then(d2 => {
+            const fullItems = d2.items || []
+            setItems(fullItems)
+            setLoadingFull(false)
+            onItemsChange?.(fullItems)
+          })
+          .catch(() => setLoadingFull(false))
       })
       .catch(() => { setLoading(false); onLoadingChange?.(false) })
+
+    return () => { fullFetchRef.current?.abort() }
   }, [sido, lat, lng, dealTab, propType])
 
   // 지도 마커 클릭 시 외부에서 선택된 아파트 자동 오픈
@@ -211,7 +290,7 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
     setCompareLoading(true)
     const results = await Promise.all(
       COMPARE_CITIES.map(city =>
-        fetch(`/api/realestate?sido=${encodeURIComponent(city)}&dealType=${dealTab}&propType=${propType}`)
+        fetch(`/api/realestate?sido=${encodeURIComponent(city)}&dealType=${dealTab}&propType=${propType}&quick=true`)
           .then(r => r.json())
           .then(d => {
             const nums = (d.items || []).filter((i: TradeItem) => i.dealType !== '월세').map((i: TradeItem) => rawNum(i.dealAmount)).filter((n: number) => n > 0)
@@ -236,13 +315,18 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
 
   const activeProp = PROP_TYPES.find(p => p.id === propType)!
 
+  const filteredItems = sortItems(
+    items.filter(item => matchesPyeong(item, pyeongFilter)),
+    sortBy
+  )
+
   // 요약 통계
   const stats = (() => {
-    if (items.length === 0) return null
-    const tradeNums = items.filter(i => i.dealType !== '월세').map(i => rawNum(i.dealAmount)).filter(n => n > 0)
+    if (filteredItems.length === 0) return null
+    const tradeNums = filteredItems.filter(i => i.dealType !== '월세').map(i => rawNum(i.dealAmount)).filter(n => n > 0)
     if (tradeNums.length === 0) return null
     const avg = Math.round(tradeNums.reduce((s, v) => s + v, 0) / tradeNums.length)
-    return { avg, min: Math.min(...tradeNums), max: Math.max(...tradeNums), count: items.length }
+    return { avg, min: Math.min(...tradeNums), max: Math.max(...tradeNums), count: filteredItems.length }
   })()
 
   if (selected) {
@@ -272,7 +356,7 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
           <ArrowLeft size={12} /> 목록으로
         </button>
         <p style={{ fontSize: 14, fontWeight: 800, color: 'white', marginBottom: 2 }}>{selected}</p>
-        <p style={{ fontSize: 10, color: '#475569', marginBottom: 10 }}>근 1년 실거래 내역 · 최신순</p>
+        <p style={{ fontSize: 10, color: '#475569', marginBottom: 10 }}>근 3년 실거래 내역 · 최신순</p>
         {histLoading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {[...Array(3)].map((_, i) => <div key={i} style={{ height: 68, borderRadius: 11, background: 'linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />)}
@@ -325,6 +409,49 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
         ))}
       </div>
 
+      {/* 평형 필터 + 정렬 */}
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <div style={{ flex: 1, display: 'flex', gap: 3, overflowX: 'auto' }}>
+          {PYEONG_LABELS.map(p => (
+            <button key={p.id} onClick={() => setPyeongFilter(p.id)} style={{
+              flexShrink: 0, padding: '4px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+              border: 'none', cursor: 'pointer', transition: 'all 0.12s', whiteSpace: 'nowrap',
+              background: pyeongFilter === p.id ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.05)',
+              color: pyeongFilter === p.id ? '#93c5fd' : '#64748b',
+              outline: pyeongFilter === p.id ? '1px solid rgba(59,130,246,0.4)' : 'none',
+            }}>{p.label}</button>
+          ))}
+        </div>
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <button onClick={() => setShowSortMenu(v => !v)} style={{
+            display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px',
+            borderRadius: 6, fontSize: 10, fontWeight: 700, border: 'none', cursor: 'pointer',
+            background: showSortMenu ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.05)',
+            color: showSortMenu ? '#c4b5fd' : '#64748b',
+            outline: showSortMenu ? '1px solid rgba(139,92,246,0.4)' : 'none',
+          }}>
+            <ArrowUpDown size={10} />
+            {SORT_OPTIONS.find(s => s.id === sortBy)?.label}
+          </button>
+          {showSortMenu && (
+            <div style={{
+              position: 'absolute', right: 0, top: '100%', marginTop: 4, zIndex: 100,
+              background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
+              overflow: 'hidden', minWidth: 90,
+            }}>
+              {SORT_OPTIONS.map(s => (
+                <button key={s.id} onClick={() => { setSortBy(s.id); setShowSortMenu(false) }} style={{
+                  display: 'block', width: '100%', textAlign: 'left', padding: '7px 11px',
+                  fontSize: 11, fontWeight: sortBy === s.id ? 800 : 600, border: 'none', cursor: 'pointer',
+                  background: sortBy === s.id ? 'rgba(139,92,246,0.2)' : 'transparent',
+                  color: sortBy === s.id ? '#c4b5fd' : '#94a3b8',
+                }}>{s.label}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* 지역 + 요약 */}
       <div style={{ background: `linear-gradient(135deg, ${activeProp.color}18, ${activeProp.color}08)`, borderRadius: 12, padding: '10px 13px', border: `1px solid ${activeProp.color}25` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -332,7 +459,17 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
             <p style={{ fontSize: 12, fontWeight: 800, color: 'white' }}>
               {activeProp.emoji} {filterDong ? `📍 ${filterDong}` : sido} {activeProp.label} {dealTab === 'trade' ? '매매' : '전세·월세'}
             </p>
-            <p style={{ fontSize: 9, color: '#475569', marginTop: 2 }}>최근 3년 · 실거래 신고 기준 · 단지 {items.length}개</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+              <p style={{ fontSize: 9, color: '#475569' }}>
+                실거래 신고 기준 · 단지 {filteredItems.length}개{items.length !== filteredItems.length ? ` (전체 ${items.length}개)` : ''}
+              </p>
+              {loadingFull && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <span style={{ display: 'inline-block', width: 8, height: 8, border: '1.5px solid rgba(255,255,255,0.15)', borderTopColor: '#60a5fa', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  <span style={{ fontSize: 9, color: '#3b82f6' }}>전체 로딩 중...</span>
+                </div>
+              )}
+            </div>
           </div>
           {stats && (
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -363,14 +500,14 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           {[...Array(4)].map((_, i) => <div key={i} style={{ height: 68, borderRadius: 11, background: 'linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />)}
         </div>
-      ) : items.length === 0 ? (
+      ) : filteredItems.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '24px 0', color: '#475569', fontSize: 13 }}>
           <div style={{ fontSize: 28, marginBottom: 6 }}>⏳</div>
-          해당 지역 {activeProp.label} 거래 데이터가 없어요
+          {items.length > 0 ? `${PYEONG_LABELS.find(p => p.id === pyeongFilter)?.label} 조건에 맞는 데이터가 없어요` : `해당 지역 ${activeProp.label} 거래 데이터가 없어요`}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          {items.map((item, i) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }} onClick={() => setShowSortMenu(false)}>
+          {filteredItems.map((item, i) => (
             <TradeRow key={i} item={item}
               onClick={async () => {
                 handleAptClick(item.aptNm)

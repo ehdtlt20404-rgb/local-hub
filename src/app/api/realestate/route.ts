@@ -113,6 +113,7 @@ export async function GET(req: NextRequest) {
   const lng = searchParams.get('lng')
   const dealType = searchParams.get('dealType') || 'trade'   // trade | rent
   const propType = searchParams.get('propType') || 'apt'     // apt | villa | house | officetel
+  const quick = searchParams.get('quick') === 'true'         // quick=true: first 3 months only
 
   const region = lat && lng ? await getRegionFromCoords(lat, lng) : null
   const lawdCd = region?.lawdCd || SIDO_LAWD[sido] || '11110'
@@ -135,16 +136,19 @@ export async function GET(req: NextRequest) {
         const all: any[] = []
         const seen = new Set<string>()
         let noNewBatches = 0
-        for (let i = 0; i < 120; i += 10) {
-          const batch = Array.from({ length: 10 }, (_, j) => getYm(i + j))
+        const maxMonths = quick ? 3 : 120
+        for (let i = 0; i < maxMonths; i += 10) {
+          const batchSize = Math.min(10, maxMonths - i)
+          const batch = Array.from({ length: batchSize }, (_, j) => getYm(i + j))
           const results = await Promise.all(batch.map(ym => fetchItems(cd, ym, propType, dealType)))
           const flat = results.flat()
           const prevSize = seen.size
           flat.forEach(item => seen.add(item.aptNm))
           all.push(...flat)
+          if (quick) break
           if (seen.size === prevSize) {
             noNewBatches++
-            if (noNewBatches >= 2) break  // 연속 2배치(20개월)에서 새 단지 없으면 종료
+            if (noNewBatches >= 2) break
           } else {
             noNewBatches = 0
           }
