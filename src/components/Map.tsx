@@ -111,13 +111,13 @@ export default function Map({ lat, lng, address, onMapClick, places = [], priceM
                 <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 3 }}>{pm.name}</div>
                 <div style={{ color: DEAL_COLOR[pm.dealType] || '#34d399', fontWeight: 700, marginBottom: 8 }}>{pm.dealType} {pm.price}</div>
                 <div style={{ display: 'flex', gap: 4 }}>
-                  <a href={`https://land.naver.com/search?query=${encodeURIComponent(pm.name)}`} target="_blank" rel="noreferrer"
+                  <a href={`https://search.naver.com/search.naver?query=${encodeURIComponent(pm.name + ' 아파트')}`} target="_blank" rel="noreferrer"
                     style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#166534', color: '#4ade80', borderRadius: 5, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>
                     네이버
                   </a>
-                  <a href={`https://map.kakao.com/link/search/${encodeURIComponent(pm.name)}`} target="_blank" rel="noreferrer"
-                    style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#713f12', color: '#fbbf24', borderRadius: 5, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>
-                    카카오맵
+                  <a href={`https://www.zigbang.com/home/apt/search?q=${encodeURIComponent(pm.name)}`} target="_blank" rel="noreferrer"
+                    style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#1e3a5f', color: '#60a5fa', borderRadius: 5, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>
+                    직방
                   </a>
                 </div>
               </div>

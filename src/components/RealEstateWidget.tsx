@@ -85,12 +85,12 @@ function TradeRow({ item, onClick }: { item: TradeItem; onClick?: () => void }) 
       </div>
       {onClick && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: 6, gap: 4 }}>
-          <a href={`https://land.naver.com/search?query=${encodeURIComponent(item.aptNm)}`} target="_blank" rel="noreferrer"
+          <a href={`https://search.naver.com/search.naver?query=${encodeURIComponent(item.aptNm + ' 아파트')}`} target="_blank" rel="noreferrer"
             onClick={e => e.stopPropagation()}
             style={{ fontSize: 9, color: '#4ade80', textDecoration: 'none', background: 'rgba(74,222,128,0.08)', borderRadius: 4, padding: '2px 6px', fontWeight: 600 }}>네이버</a>
-          <a href={`https://map.kakao.com/link/search/${encodeURIComponent(item.aptNm)}`} target="_blank" rel="noreferrer"
+          <a href={`https://www.zigbang.com/home/apt/search?q=${encodeURIComponent(item.aptNm)}`} target="_blank" rel="noreferrer"
             onClick={e => e.stopPropagation()}
-            style={{ fontSize: 9, color: '#fbbf24', textDecoration: 'none', background: 'rgba(251,191,36,0.08)', borderRadius: 4, padding: '2px 6px', fontWeight: 600 }}>카카오맵</a>
+            style={{ fontSize: 9, color: '#60a5fa', textDecoration: 'none', background: 'rgba(59,130,246,0.08)', borderRadius: 4, padding: '2px 6px', fontWeight: 600 }}>직방</a>
         </div>
       )}
     </div>
