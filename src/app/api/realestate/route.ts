@@ -144,13 +144,14 @@ export async function GET(req: NextRequest) {
 
       let all = await fetchList(lawdCd)
 
-      // 동 필터 적용
-      let filtered = filterDong
-        ? all.filter(i => i.umdNm && i.umdNm.includes(filterDong.replace('동', '')))
+      // 동 필터: "판암2동" → "판암" (숫자+동 제거), umdNm이 해당 동 기반인지 확인
+      const dongBase = filterDong ? filterDong.replace(/\d+동$/, '').replace(/동$/, '') : null
+      let filtered = dongBase
+        ? all.filter(i => i.umdNm && i.umdNm.includes(dongBase))
         : all
 
-      // 동 필터 후 결과 없으면 필터 제거
-      if (filtered.length === 0 && filterDong) filtered = all
+      // 동 필터 후 결과 없으면 필터 제거 (인근 동 포함)
+      if (filtered.length === 0 && dongBase) filtered = all
 
       // 그래도 없으면 시 전체 코드로 재시도
       if (filtered.length === 0) {
