@@ -83,6 +83,7 @@ export default function HomePage() {
   const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number } | null>(null)
   const [aptExternalSelect, setAptExternalSelect] = useState<string | null>(null)
   const [highlightedApt, setHighlightedApt] = useState<string | null>(null)
+  const [realEstateLoading, setRealEstateLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [rainAlert, setRainAlert] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
@@ -208,6 +209,7 @@ export default function HomePage() {
         <RealEstateWidget sido={sido} lat={lat} lng={lng}
           onItemsChange={handleRealEstateItems}
           externalSelected={aptExternalSelect}
+          onLoadingChange={setRealEstateLoading}
           onAptLocate={(aLat, aLng, name) => {
             setMapFocus({ lat: aLat, lng: aLng })
             setHighlightedApt(name)
@@ -547,6 +549,20 @@ export default function HomePage() {
                 setSidebarOpen(true)
               }}
             />
+            {/* 부동산 로딩 오버레이 */}
+            {realEstateLoading && activeTab === 'realestate' && (
+              <div style={{
+                position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
+                background: 'rgba(15,23,42,0.92)', backdropFilter: 'blur(12px)',
+                color: 'white', borderRadius: 20, padding: '7px 16px', fontSize: 12, fontWeight: 700,
+                pointerEvents: 'none', whiteSpace: 'nowrap', zIndex: 1001,
+                border: '1px solid rgba(59,130,246,0.4)',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid rgba(255,255,255,0.2)', borderTopColor: '#60a5fa', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                부동산 데이터 불러오는 중...
+              </div>
+            )}
             <div style={{
               position: 'absolute', bottom: 18, left: '50%', transform: 'translateX(-50%)',
               background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(12px)',

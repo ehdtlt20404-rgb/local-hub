@@ -164,11 +164,12 @@ function PriceChart({ chartData }: { chartData: { label: string; avg: number }[]
 
 const COMPARE_CITIES = ['서울', '부산', '대구', '대전', '광주', '인천']
 
-export default function RealEstateWidget({ sido, lat, lng, onItemsChange, externalSelected, onAptLocate }: {
+export default function RealEstateWidget({ sido, lat, lng, onItemsChange, externalSelected, onAptLocate, onLoadingChange }: {
   sido: string; lat: number; lng: number
   onItemsChange?: (items: TradeItem[]) => void
   externalSelected?: string | null
   onAptLocate?: (lat: number, lng: number, name: string) => void
+  onLoadingChange?: (loading: boolean) => void
 }) {
   const [dealTab, setDealTab] = useState<DealTab>('trade')
   const [propType, setPropType] = useState<PropType>('apt')
@@ -184,6 +185,7 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
 
   useEffect(() => {
     setLoading(true)
+    onLoadingChange?.(true)
     setSelected(null)
     fetch(`/api/realestate?sido=${encodeURIComponent(sido)}&lat=${lat}&lng=${lng}&dealType=${dealTab}&propType=${propType}`)
       .then(r => r.json())
@@ -192,9 +194,10 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
         setItems(loaded)
         setFilterDong(d.filterDong || '')
         setLoading(false)
+        onLoadingChange?.(false)
         onItemsChange?.(loaded)
       })
-      .catch(() => setLoading(false))
+      .catch(() => { setLoading(false); onLoadingChange?.(false) })
   }, [sido, lat, lng, dealTab, propType])
 
   // 지도 마커 클릭 시 외부에서 선택된 아파트 자동 오픈
