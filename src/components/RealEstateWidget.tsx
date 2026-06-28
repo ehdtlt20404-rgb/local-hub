@@ -329,7 +329,7 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
             <p style={{ fontSize: 12, fontWeight: 800, color: 'white' }}>
               {activeProp.emoji} {filterDong ? `📍 ${filterDong}` : sido} {activeProp.label} {dealTab === 'trade' ? '매매' : '전세·월세'}
             </p>
-            <p style={{ fontSize: 9, color: '#475569', marginTop: 2 }}>최근 3개월 · 실거래 신고 기준</p>
+            <p style={{ fontSize: 9, color: '#475569', marginTop: 2 }}>최근 3년 · 실거래 신고 기준 · 단지 {items.length}개</p>
           </div>
           {stats && (
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
