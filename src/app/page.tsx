@@ -95,15 +95,6 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  useEffect(() => {
-    if (!favOpen) return
-    const handler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      if (!target.closest('[data-fav-container]')) setFavOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [favOpen])
 
   const grid = latlngToGrid(lat, lng)
 
@@ -274,7 +265,7 @@ export default function HomePage() {
           </div>
 
           {/* 즐겨찾기 버튼 */}
-          <div data-fav-container style={{ position: 'relative' }}>
+          <div style={{ position: 'relative' }}>
             <button
               onClick={() => setFavOpen(v => !v)}
               style={{
@@ -289,6 +280,8 @@ export default function HomePage() {
               {!isMobile && <span>{favorites.length > 0 ? `즐겨찾기 ${favorites.length}` : '즐겨찾기'}</span>}
             </button>
             {favOpen && (
+              <>
+              <div onClick={() => setFavOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 499 }} />
               <div style={{
                 position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 500,
                 background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)',
@@ -357,6 +350,7 @@ export default function HomePage() {
                   </>
                 )}
               </div>
+              </>
             )}
           </div>
 
