@@ -25,6 +25,8 @@
 *.pem
 
 # debug
+src/app/api/debug/
+src/app/api/bus-debug/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
