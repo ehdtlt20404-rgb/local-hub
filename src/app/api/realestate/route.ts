@@ -131,21 +131,39 @@ export async function GET(req: NextRequest) {
       }
       return NextResponse.json({ items: sortByDate(all), sido, lawdCd, filterDong })
     } else {
-      const months6 = await Promise.all(
-        Array.from({ length: 6 }, (_, i) => fetchItems(lawdCd, getYm(i), propType, dealType))
-      )
-      const all = months6.flat()
-      const filtered = filterDong
+      async function fetchList(cd: string) {
+        const months6 = await Promise.all(
+          Array.from({ length: 6 }, (_, i) => fetchItems(cd, getYm(i), propType, dealType))
+        )
+        return months6.flat()
+      }
+
+      let all = await fetchList(lawdCd)
+
+      // 동 필터 적용
+      let filtered = filterDong
         ? all.filter(i => i.umdNm && i.umdNm.includes(filterDong.replace('동', '')))
         : all
+
+      // 동 필터 후 결과 없으면 필터 제거
+      if (filtered.length === 0 && filterDong) filtered = all
+
+      // 그래도 없으면 시 전체 코드로 재시도
+      if (filtered.length === 0) {
+        const sidoCd = SIDO_LAWD[sido]
+        if (sidoCd && sidoCd !== lawdCd) {
+          all = await fetchList(sidoCd)
+          filtered = all
+        }
+      }
+
       const combined = sortByDate(filtered)
       const latestByApt = new Map<string, any>()
       for (const item of combined) {
         if (!latestByApt.has(item.aptNm)) latestByApt.set(item.aptNm, item)
       }
       const deduped = Array.from(latestByApt.values()).sort((a, b) => a.aptNm.localeCompare(b.aptNm, 'ko'))
-      const ym = m0.length ? getYm(0) : m1.length ? getYm(1) : getYm(2)
-      return NextResponse.json({ items: deduped, dealYmd: ym, sido, lawdCd, filterDong })
+      return NextResponse.json({ items: deduped, sido, lawdCd, filterDong })
     }
   } catch (e: any) {
     return NextResponse.json({ items: [], error: e.message })
