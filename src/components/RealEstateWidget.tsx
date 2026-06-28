@@ -163,7 +163,12 @@ function PriceChart({ chartData }: { chartData: { label: string; avg: number }[]
   )
 }
 
-export default function RealEstateWidget({ sido, lat, lng }: { sido: string; lat: number; lng: number }) {
+const COMPARE_CITIES = ['서울', '부산', '대구', '대전', '광주', '인천']
+
+export default function RealEstateWidget({ sido, lat, lng, onItemsChange }: {
+  sido: string; lat: number; lng: number
+  onItemsChange?: (items: TradeItem[]) => void
+}) {
   const [dealTab, setDealTab] = useState<DealTab>('trade')
   const [propType, setPropType] = useState<PropType>('apt')
   const [items, setItems] = useState<TradeItem[]>([])
@@ -172,15 +177,42 @@ export default function RealEstateWidget({ sido, lat, lng }: { sido: string; lat
   const [selected, setSelected] = useState<string | null>(null)
   const [history, setHistory] = useState<TradeItem[]>([])
   const [histLoading, setHistLoading] = useState(false)
+  const [showCompare, setShowCompare] = useState(false)
+  const [compareData, setCompareData] = useState<{ city: string; avg: number }[]>([])
+  const [compareLoading, setCompareLoading] = useState(false)
 
   useEffect(() => {
     setLoading(true)
     setSelected(null)
     fetch(`/api/realestate?sido=${encodeURIComponent(sido)}&lat=${lat}&lng=${lng}&dealType=${dealTab}&propType=${propType}`)
       .then(r => r.json())
-      .then(d => { setItems(d.items || []); setFilterDong(d.filterDong || ''); setLoading(false) })
+      .then(d => {
+        const loaded = d.items || []
+        setItems(loaded)
+        setFilterDong(d.filterDong || '')
+        setLoading(false)
+        onItemsChange?.(loaded)
+      })
       .catch(() => setLoading(false))
   }, [sido, lat, lng, dealTab, propType])
+
+  async function loadCompare() {
+    setCompareLoading(true)
+    const results = await Promise.all(
+      COMPARE_CITIES.map(city =>
+        fetch(`/api/realestate?sido=${encodeURIComponent(city)}&dealType=${dealTab}&propType=${propType}`)
+          .then(r => r.json())
+          .then(d => {
+            const nums = (d.items || []).filter((i: TradeItem) => i.dealType !== '월세').map((i: TradeItem) => rawNum(i.dealAmount)).filter((n: number) => n > 0)
+            const avg = nums.length ? Math.round(nums.reduce((s: number, v: number) => s + v, 0) / nums.length) : 0
+            return { city, avg }
+          })
+          .catch(() => ({ city, avg: 0 }))
+      )
+    )
+    setCompareData(results.filter(r => r.avg > 0))
+    setCompareLoading(false)
+  }
 
   function handleAptClick(aptNm: string) {
     setSelected(aptNm)
@@ -330,6 +362,60 @@ export default function RealEstateWidget({ sido, lat, lng }: { sido: string; lat
           {items.map((item, i) => <TradeRow key={i} item={item} onClick={() => handleAptClick(item.aptNm)} />)}
         </div>
       )}
+
+      {/* 전국 시세 비교 */}
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
+        <button
+          onClick={() => { setShowCompare(v => !v); if (!showCompare && compareData.length === 0) loadCompare() }}
+          style={{
+            width: '100%', padding: '8px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.08)',
+            background: showCompare ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.04)',
+            color: showCompare ? '#c4b5fd' : '#64748b', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+          }}
+        >
+          🗺 전국 시세 비교 {showCompare ? '▲' : '▼'}
+        </button>
+
+        {showCompare && (
+          <div style={{ marginTop: 8 }}>
+            {compareLoading ? (
+              <div style={{ textAlign: 'center', padding: '16px 0', color: '#475569', fontSize: 11 }}>불러오는 중...</div>
+            ) : compareData.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '12px 0', color: '#475569', fontSize: 11 }}>데이터 없음</div>
+            ) : (() => {
+              const maxAvg = Math.max(...compareData.map(d => d.avg))
+              const currentAvg = stats?.avg || 0
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <p style={{ fontSize: 9, color: '#475569', marginBottom: 2 }}>{activeProp.label} {dealTab === 'trade' ? '매매' : '전세·월세'} 평균 시세 비교</p>
+                  {compareData.sort((a, b) => b.avg - a.avg).map(d => {
+                    const pct = Math.round((d.avg / maxAvg) * 100)
+                    const isCurrent = d.city === sido
+                    return (
+                      <div key={d.city}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <span style={{ fontSize: 10, fontWeight: isCurrent ? 800 : 600, color: isCurrent ? '#c4b5fd' : '#94a3b8' }}>
+                            {isCurrent ? '📍 ' : ''}{d.city}
+                          </span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: isCurrent ? '#c4b5fd' : '#64748b' }}>{formatPrice(String(d.avg), '매매')}</span>
+                        </div>
+                        <div style={{ height: 5, background: 'rgba(255,255,255,0.05)', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', borderRadius: 3, width: `${pct}%`, background: isCurrent ? 'linear-gradient(90deg,#8b5cf6,#c4b5fd)' : 'rgba(255,255,255,0.15)', transition: 'width 0.6s ease' }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {currentAvg > 0 && (
+                    <p style={{ fontSize: 9, color: '#475569', marginTop: 2 }}>
+                      현재 지역 평균: {formatPrice(String(currentAvg), '매매')}
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

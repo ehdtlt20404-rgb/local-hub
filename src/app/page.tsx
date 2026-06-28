@@ -61,15 +61,12 @@ const SIDO_COORDS: Record<string, [number, number]> = {
 const SIDO_LIST = Object.keys(SIDO_COORDS)
 
 const TABS = [
-  { id: 'weather', label: '날씨', icon: '🌤' },
-  { id: 'dust', label: '미세먼지', icon: '💨' },
-  { id: 'places', label: '편의시설', icon: '🏢' },
-  { id: 'food', label: '맛집', icon: '🍽' },
-  { id: 'events', label: '행사', icon: '🎪' },
-  { id: 'realestate', label: '부동산', icon: '🏘' },
-  { id: 'bus', label: '교통', icon: '🚌' },
-  { id: 'safety', label: '안전', icon: '🛡' },
-  { id: 'favorites', label: '즐겨찾기', icon: '⭐' },
+  { id: 'weather',    label: '날씨·환경',  icon: '🌤' },
+  { id: 'places',     label: '편의시설',   icon: '🏢' },
+  { id: 'food',       label: '맛집',       icon: '🍽' },
+  { id: 'realestate', label: '부동산',     icon: '🏘' },
+  { id: 'life',       label: '교통·행사',  icon: '🚌' },
+  { id: 'favorites',  label: '즐겨찾기',   icon: '⭐' },
 ] as const
 type TabId = typeof TABS[number]['id']
 
@@ -82,11 +79,39 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<TabId>('weather')
   const [searching, setSearching] = useState(false)
   const [mapPlaces, setMapPlaces] = useState<any[]>([])
+  const [priceMarkers, setPriceMarkers] = useState<any[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [rainAlert, setRainAlert] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [mobileView, setMobileView] = useState<'info' | 'map'>('info')
   const { favorites, add: addFav, remove: removeFav, isSaved } = useFavorites()
+
+  async function handleRealEstateItems(items: any[]) {
+    // 상위 8개만 지오코딩
+    const top = items.slice(0, 8)
+    const markers = await Promise.all(top.map(async item => {
+      try {
+        const res = await fetch(`/api/geocode-apt?q=${encodeURIComponent(item.aptNm + ' ' + (item.umdNm || ''))}`)
+        const d = await res.json()
+        if (!d.lat) return null
+        const price = item.dealType === '월세'
+          ? item.dealAmount.replace('보', '보').replace('·월', '/월')
+          : item.dealAmount.length > 5 ? item.dealAmount.slice(0, 6) + '..' : item.dealAmount
+        return { lat: d.lat, lng: d.lng, name: item.aptNm, price: formatPriceShort(item.dealAmount, item.dealType), dealType: item.dealType }
+      } catch { return null }
+    }))
+    setPriceMarkers(markers.filter(Boolean))
+  }
+
+  function formatPriceShort(amount: string, dealType: string) {
+    if (dealType === '월세') {
+      const [dep, mon] = amount.split('·')
+      return `${dep.replace('보','')}/${mon.replace('월','')}`
+    }
+    const n = parseInt(amount)
+    if (isNaN(n)) return amount
+    return n >= 10000 ? `${Math.floor(n/10000)}억` : `${Math.round(n/1000)}천`
+  }
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -172,15 +197,21 @@ export default function HomePage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <WeatherWidget nx={grid.nx} ny={grid.ny} />
           <ForecastWidget nx={grid.nx} ny={grid.ny} />
+          <DustWidget sido={sido} />
         </div>
       )}
-      {activeTab === 'dust' && <DustWidget sido={sido} />}
       {activeTab === 'places' && <PlacesWidget lat={lat} lng={lng} onPlacesChange={setMapPlaces} />}
       {activeTab === 'food' && <RestaurantWidget lat={lat} lng={lng} />}
-      {activeTab === 'events' && <EventsWidget sido={sido} />}
-      {activeTab === 'realestate' && <RealEstateWidget sido={sido} lat={lat} lng={lng} />}
-      {activeTab === 'bus' && <BusWidget lat={lat} lng={lng} />}
-      {activeTab === 'safety' && <SafetyWidget sido={sido} />}
+      {activeTab === 'realestate' && (
+        <RealEstateWidget sido={sido} lat={lat} lng={lng} onItemsChange={handleRealEstateItems} />
+      )}
+      {activeTab === 'life' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <BusWidget lat={lat} lng={lng} />
+          <SafetyWidget sido={sido} />
+          <EventsWidget sido={sido} />
+        </div>
+      )}
       {activeTab === 'favorites' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', borderRadius: 12, padding: '10px 14px' }}>
@@ -474,19 +505,26 @@ export default function HomePage() {
 
           <button onClick={() => setSidebarOpen(v => !v)} style={{
             position: 'absolute', left: sidebarOpen ? 320 : 0, top: '50%', transform: 'translateY(-50%)',
-            zIndex: 200, background: 'rgba(15,23,42,0.92)', backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,0.09)',
+            zIndex: 200, background: sidebarOpen ? 'rgba(15,23,42,0.95)' : 'rgba(59,130,246,0.9)',
+            backdropFilter: 'blur(8px)',
+            border: `1px solid ${sidebarOpen ? 'rgba(255,255,255,0.09)' : 'rgba(59,130,246,0.6)'}`,
             borderLeft: sidebarOpen ? 'none' : undefined,
-            borderRadius: '0 8px 8px 0',
-            width: 20, height: 44, cursor: 'pointer', color: '#475569',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            transition: 'left 0.3s cubic-bezier(0.4,0,0.2,1)', fontSize: 11,
+            borderRadius: '0 10px 10px 0',
+            width: 22, height: 56, cursor: 'pointer',
+            color: sidebarOpen ? '#64748b' : 'white',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+            transition: 'left 0.3s cubic-bezier(0.4,0,0.2,1)',
+            boxShadow: sidebarOpen ? 'none' : '0 0 12px rgba(59,130,246,0.4)',
           }}>
-            {sidebarOpen ? '‹' : '›'}
+            <span style={{ fontSize: 13, lineHeight: 1 }}>{sidebarOpen ? '‹' : '›'}</span>
+            {!sidebarOpen && <span style={{ fontSize: 7, fontWeight: 800, letterSpacing: '0.05em', writingMode: 'vertical-rl', transform: 'rotate(180deg)', color: 'rgba(255,255,255,0.8)' }}>메뉴</span>}
           </button>
 
           <main style={{ flex: 1, position: 'relative', minWidth: 0 }}>
-            <Map lat={lat} lng={lng} address={address} onMapClick={handleMapClick} places={activeTab === 'places' ? mapPlaces : []} />
+            <Map lat={lat} lng={lng} address={address} onMapClick={handleMapClick}
+              places={activeTab === 'places' ? mapPlaces : []}
+              priceMarkers={activeTab === 'realestate' ? priceMarkers : []}
+            />
             <div style={{
               position: 'absolute', bottom: 18, left: '50%', transform: 'translateX(-50%)',
               background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(12px)',
