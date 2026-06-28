@@ -93,7 +93,7 @@ export default function HomePage() {
     const top = items.slice(0, 50)
     const markers = await Promise.all(top.map(async item => {
       try {
-        const res = await fetch(`/api/geocode-apt?q=${encodeURIComponent(item.aptNm + (item.umdNm ? ' ' + item.umdNm : ''))}&propType=${item.propType || 'apt'}`)
+        const res = await fetch(`/api/geocode-apt?q=${encodeURIComponent(item.aptNm)}&dong=${encodeURIComponent(item.umdNm || '')}&propType=${item.propType || 'apt'}`)
         const d = await res.json()
         if (!d.lat) return null
         const price = item.dealType === '월세'

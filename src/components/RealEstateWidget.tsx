@@ -372,7 +372,7 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
               onClick={async () => {
                 handleAptClick(item.aptNm)
                 if (onAptLocate) {
-                  const res = await fetch(`/api/geocode-apt?q=${encodeURIComponent(item.aptNm + (item.umdNm ? ' ' + item.umdNm : ''))}&propType=${propType}`)
+                  const res = await fetch(`/api/geocode-apt?q=${encodeURIComponent(item.aptNm)}&dong=${encodeURIComponent(item.umdNm || '')}&propType=${propType}`)
                   const d = await res.json()
                   if (d.lat) onAptLocate(d.lat, d.lng, item.aptNm)
                 }
