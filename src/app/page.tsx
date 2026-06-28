@@ -417,29 +417,48 @@ export default function HomePage() {
             {/* 위치 헤더 */}
             <div style={{
               padding: '14px 18px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)',
-              background: 'linear-gradient(180deg, rgba(59,130,246,0.07) 0%, transparent 100%)', flexShrink: 0,
+              background: 'linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(139,92,246,0.05) 100%)', flexShrink: 0,
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6', boxShadow: '0 0 6px #3b82f6' }} />
-                <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>선택 위치</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#3b82f6', boxShadow: '0 0 8px #3b82f6' }} />
+                  <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>선택 위치</span>
+                </div>
+                <button
+                  onClick={() => {
+                    if (isSaved(lat, lng)) removeFav(`${lat.toFixed(4)}_${lng.toFixed(4)}`)
+                    else addFav({ name: address, lat, lng, sido })
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px',
+                    borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 700,
+                    background: isSaved(lat, lng) ? 'rgba(234,179,8,0.15)' : 'rgba(255,255,255,0.06)',
+                    color: isSaved(lat, lng) ? '#fbbf24' : '#475569',
+                  }}
+                >
+                  {isSaved(lat, lng) ? '★ 저장됨' : '☆ 저장'}
+                </button>
               </div>
-              <p style={{ fontSize: 14, fontWeight: 700, color: 'white', marginBottom: 2, lineHeight: 1.35 }}>{address}</p>
+              <p style={{ fontSize: 15, fontWeight: 800, color: 'white', marginBottom: 3, lineHeight: 1.3 }}>{address}</p>
               <p style={{ fontSize: 10, color: '#475569' }}>{lat.toFixed(4)}°N · {lng.toFixed(4)}°E</p>
             </div>
 
-            {/* 탭 그리드 4×2 */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+            {/* 탭 그리드 3×3 */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
               {TABS.map(tab => (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="tab-btn" style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                  padding: '10px 4px', fontSize: 10, fontWeight: 700, border: 'none', cursor: 'pointer',
+                  padding: '11px 4px', fontSize: 10, fontWeight: 700, border: 'none', cursor: 'pointer',
                   background: activeTab === tab.id ? 'rgba(59,130,246,0.12)' : 'transparent',
                   color: activeTab === tab.id ? '#93c5fd' : '#64748b',
                   borderBottom: activeTab === tab.id ? '2px solid #3b82f6' : '2px solid transparent',
-                  transition: 'all 0.15s',
+                  transition: 'all 0.15s', position: 'relative',
                 }}>
-                  <span style={{ fontSize: 17 }}>{tab.icon}</span>
+                  <span style={{ fontSize: 18 }}>{tab.icon}</span>
                   {tab.label}
+                  {tab.id === 'favorites' && favorites.length > 0 && (
+                    <span style={{ position: 'absolute', top: 6, right: '50%', transform: 'translateX(14px)', background: '#f59e0b', borderRadius: '50%', width: 14, height: 14, fontSize: 8, fontWeight: 800, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{favorites.length}</span>
+                  )}
                 </button>
               ))}
             </div>
