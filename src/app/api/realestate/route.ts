@@ -120,8 +120,8 @@ export async function GET(req: NextRequest) {
 
   try {
     if (aptNm) {
-      // 5년(60개월) - 10개월씩 배치 처리
-      const months = Array.from({ length: 60 }, (_, i) => getYm(i))
+      // 3년(36개월) - 10개월씩 배치 처리
+      const months = Array.from({ length: 36 }, (_, i) => getYm(i))
       const batchSize = 10
       const all: any[] = []
       for (let i = 0; i < months.length; i += batchSize) {
