@@ -32,10 +32,18 @@ export interface PriceMarker { lat: number; lng: number; name: string; price: st
 
 function createPriceIcon(price: string, dealType: string) {
   const color = DEAL_COLOR[dealType] || '#34d399'
+  const bg = dealType === '매매' ? '#064e3b' : dealType === '전세' ? '#1e3a5f' : '#451a03'
   return L.divIcon({
     className: '',
-    html: `<div style="background:rgba(15,23,42,0.92);border:1.5px solid ${color};border-radius:8px;padding:3px 7px;font-size:10px;font-weight:800;color:${color};white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,0.5);backdrop-filter:blur(4px)">${price}</div>`,
-    iconAnchor: [0, 0],
+    html: `
+      <div style="position:relative;display:inline-block">
+        <div style="background:${bg};border:2px solid ${color};border-radius:10px;padding:5px 10px;font-size:13px;font-weight:900;color:${color};white-space:nowrap;box-shadow:0 3px 14px rgba(0,0,0,0.7);letter-spacing:-0.3px;line-height:1">
+          <span style="font-size:9px;opacity:0.75;margin-right:2px">${dealType}</span>${price}
+        </div>
+        <div style="position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:7px solid ${color}"></div>
+      </div>`,
+    iconAnchor: [30, 38],
+    iconSize: [60, 38],
   })
 }
 
