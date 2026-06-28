@@ -60,7 +60,7 @@ async function fetchTrade(lawdCd: string, ym: string) {
 
 async function fetchRent(lawdCd: string, ym: string) {
   const key = process.env.PUBLIC_DATA_API_KEY || ''
-  const url = `https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent?serviceKey=${key}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=999&pageNo=1`
+  const url = `https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent?serviceKey=${key}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=999&pageNo=1&_type=xml`
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
     const xml = await res.text()

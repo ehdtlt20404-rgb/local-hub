@@ -20,14 +20,12 @@ export async function GET(req: NextRequest) {
   const headers = { Authorization: `KakaoAK ${key}` }
 
   try {
-    let items: any[] = []
-
     const res = await axios.get('https://dapi.kakao.com/v2/local/search/category.json', {
       headers,
       params: { category_group_code: CATEGORY_MAP[type], x: lng, y: lat, radius: 1000, size: 15 },
       timeout: 8000,
     })
-    items = res.data?.documents || []
+    const items = res.data?.documents || []
 
     const places = items.map((el: any) => ({
       id: el.id,
@@ -37,11 +35,12 @@ export async function GET(req: NextRequest) {
       type,
       address: el.road_address_name || el.address_name,
       distance: el.distance,
+      phone: el.phone || '',
+      url: el.place_url || '',
     }))
 
     return NextResponse.json({ places })
   } catch (e: any) {
-    console.error('[places]', e.response?.data || e.message)
     return NextResponse.json({ places: [], error: e.message })
   }
 }

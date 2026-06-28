@@ -82,7 +82,19 @@ function TradeRow({ item, onClick }: { item: TradeItem; onClick?: () => void }) 
         <span><Calendar size={9} style={{ display: 'inline', marginRight: 2 }} />{formatDate(item.dealYear, item.dealMonth, item.dealDay)}</span>
         {item.umdNm && <span>· 📍{item.umdNm}</span>}
       </div>
-      {onClick && <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>클릭 → 1년 거래 내역 보기</div>}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 5 }}>
+        {onClick && <div style={{ fontSize: 10, color: '#64748b' }}>클릭 → 1년 거래 내역 보기</div>}
+        <a
+          href={`https://land.naver.com/search?query=${encodeURIComponent(item.aptNm)}`}
+          target="_blank" rel="noreferrer"
+          onClick={e => e.stopPropagation()}
+          style={{
+            fontSize: 10, color: '#4ade80', textDecoration: 'none',
+            background: 'rgba(74,222,128,0.1)', borderRadius: 5, padding: '2px 7px',
+            marginLeft: 'auto',
+          }}
+        >네이버 부동산 →</a>
+      </div>
     </div>
   )
 }
@@ -169,7 +181,7 @@ export default function RealEstateWidget({ sido, lat, lng }: { sido: string; lat
 
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {[...Array(4)].map((_, i) => <div key={i} style={{ height: 72, background: 'rgba(255,255,255,0.04)', borderRadius: 12 }} />)}
+          {[...Array(4)].map((_, i) => <div key={i} style={{ height: 72, borderRadius: 12, background: 'linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />)}
         </div>
       ) : items.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '24px 0', color: '#475569', fontSize: 13 }}>

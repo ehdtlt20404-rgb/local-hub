@@ -20,7 +20,16 @@ const PLACE_COLORS: Record<string, string> = {
   bank: '#06b6d4',
 }
 
-interface Place { id: number; name: string; lat: number; lng: number; type: string }
+const PLACE_EMOJI: Record<string, string> = {
+  pharmacy: '💊', hospital: '🏥', convenience: '🏪',
+  cafe: '☕', subway: '🚇', bank: '🏦',
+}
+const PLACE_LABEL: Record<string, string> = {
+  pharmacy: '약국', hospital: '병원', convenience: '편의점',
+  cafe: '카페', subway: '지하철', bank: '은행',
+}
+
+interface Place { id: number; name: string; lat: number; lng: number; type: string; address?: string; phone?: string; distance?: string }
 
 function MapEvents({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
   useMapEvents({ click(e) { onMapClick(e.latlng.lat, e.latlng.lng) } })
@@ -67,8 +76,17 @@ export default function Map({ lat, lng, address, onMapClick, places = [] }: Prop
           }}
         >
           <Popup>
-            <div style={{ fontSize: 13 }}>
-              <b>{p.name}</b>
+            <div style={{ fontSize: 12, minWidth: 140 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>
+                {PLACE_EMOJI[p.type]} {p.name}
+              </div>
+              <div style={{ color: '#666', fontSize: 11, marginBottom: 2 }}>
+                {PLACE_LABEL[p.type]}{p.distance ? ` · ${Number(p.distance) >= 1000 ? (Number(p.distance)/1000).toFixed(1)+'km' : p.distance+'m'}` : ''}
+              </div>
+              {p.address && <div style={{ color: '#888', fontSize: 10, marginBottom: 4 }}>{p.address}</div>}
+              {p.phone && (
+                <a href={`tel:${p.phone}`} style={{ fontSize: 11, color: '#3b82f6', display: 'block' }}>📞 {p.phone}</a>
+              )}
             </div>
           </Popup>
         </CircleMarker>
