@@ -42,7 +42,7 @@ export default function ForecastWidget({ nx, ny }: { nx: number; ny: number }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <p style={{ fontSize: 10, color: '#475569', fontWeight: 700, marginBottom: 6, letterSpacing: '0.08em', textTransform: 'uppercase' }}>5일 예보</p>
+      <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, marginBottom: 6, letterSpacing: '0.08em', textTransform: 'uppercase' }}>5일 예보</p>
       {forecast.map((day, i) => {
         const { day: dayName, date } = formatDate(day.date)
         const isToday = i === 0
@@ -57,15 +57,15 @@ export default function ForecastWidget({ nx, ny }: { nx: number; ny: number }) {
               <div style={{ fontSize: 12, fontWeight: 700, color: isToday ? '#60a5fa' : '#94a3b8' }}>
                 {isToday ? '오늘' : dayName}
               </div>
-              <div style={{ fontSize: 10, color: '#334155' }}>{date}</div>
+              <div style={{ fontSize: 10, color: '#94a3b8' }}>{date}</div>
             </div>
             <div style={{ fontSize: 20, flexShrink: 0 }}>{weatherIcon(day.sky, day.pty)}</div>
-            <div style={{ flex: 1, fontSize: 11, color: '#475569' }}>
+            <div style={{ flex: 1, fontSize: 11, color: '#94a3b8' }}>
               {day.pop !== '0' && `💧 ${day.pop}%`}
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: '#f87171' }}>{day.tempMax}°</span>
-              <span style={{ fontSize: 11, color: '#334155', marginLeft: 6 }}>{day.tempMin}°</span>
+              <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 6 }}>{day.tempMin}°</span>
             </div>
           </div>
         )

@@ -7,16 +7,15 @@ export async function GET(req: NextRequest) {
   const ny = searchParams.get('ny') || '127'
 
   // 한국 시간 (UTC+9)
-  const now = new Date(Date.now() + 9 * 60 * 60 * 1000)
-  const baseDate = now.toISOString().slice(0, 10).replace(/-/g, '')
-  // 초단기실황: 매시각 정시 발표, 40분 전까지 전 시각 사용
-  const kh = now.getUTCHours()
-  const km = now.getUTCMinutes()
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const km = kst.getUTCMinutes()
+  const kh = kst.getUTCHours()
+  // 초단기실황: 매시각 40분 이후 제공, 그 전엔 이전 시각 사용
   const baseHour = km < 40 ? (kh === 0 ? 23 : kh - 1) : kh
+  const needPrevDay = km < 40 && kh === 0
+  const baseKst = needPrevDay ? new Date(Date.now() + 9 * 60 * 60 * 1000 - 86400000) : kst
+  const actualDate = baseKst.toISOString().slice(0, 10).replace(/-/g, '')
   const baseTime = String(baseHour).padStart(2, '0') + '00'
-  const actualDate = (km < 40 && kh === 0)
-    ? new Date(Date.now() + 9 * 60 * 60 * 1000 - 86400000).toISOString().slice(0, 10).replace(/-/g, '')
-    : baseDate
 
   try {
     const res = await axios.get('https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst', {

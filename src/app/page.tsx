@@ -7,6 +7,10 @@ import DustWidget from '@/components/DustWidget'
 import ForecastWidget from '@/components/ForecastWidget'
 import PlacesWidget from '@/components/PlacesWidget'
 import EventsWidget from '@/components/EventsWidget'
+import RealEstateWidget from '@/components/RealEstateWidget'
+import BusWidget from '@/components/BusWidget'
+import RestaurantWidget from '@/components/RestaurantWidget'
+import SafetyWidget from '@/components/SafetyWidget'
 
 const Map = dynamic(() => import('@/components/Map'), {
   ssr: false,
@@ -59,7 +63,11 @@ const TABS = [
   { id: 'weather', label: '날씨', icon: '🌤' },
   { id: 'dust', label: '미세먼지', icon: '💨' },
   { id: 'places', label: '편의시설', icon: '🏢' },
+  { id: 'food', label: '맛집', icon: '🍽' },
   { id: 'events', label: '행사', icon: '🎪' },
+  { id: 'realestate', label: '부동산', icon: '🏘' },
+  { id: 'bus', label: '교통', icon: '🚌' },
+  { id: 'safety', label: '안전', icon: '🛡' },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -84,7 +92,11 @@ export default function HomePage() {
     try {
       const res = await fetch(`/api/address?lat=${clickLat}&lng=${clickLng}`)
       const data = await res.json()
-      setAddress(data.address || `${clickLat.toFixed(4)}°N, ${clickLng.toFixed(4)}°E`)
+      const addr = data.address || `${clickLat.toFixed(4)}°N, ${clickLng.toFixed(4)}°E`
+      setAddress(addr)
+      // 주소에서 시도 자동 매핑
+      const matched = SIDO_LIST.find(s => addr.includes(s))
+      if (matched) setSido(matched)
     } catch {
       setAddress(`${clickLat.toFixed(4)}°N, ${clickLng.toFixed(4)}°E`)
     }
@@ -109,7 +121,10 @@ export default function HomePage() {
         setLat(data.lat)
         setLng(data.lng)
         setAddress(searchInput)
-        setSearchInput('')
+        // 검색된 위치로 시도 자동 업데이트
+        const province = data.province || ''
+        const matched = SIDO_LIST.find(s => province.includes(s) || searchInput.includes(s))
+        if (matched) setSido(matched)
       }
     } finally {
       setSearching(false)
@@ -240,7 +255,7 @@ export default function HomePage() {
 
         {/* 사이드바 */}
         <aside style={{
-          width: sidebarOpen ? 300 : 0,
+          width: sidebarOpen ? 320 : 0,
           background: 'rgba(15,23,42,0.97)',
           backdropFilter: 'blur(20px)',
           borderRight: '1px solid rgba(255,255,255,0.06)',
@@ -257,30 +272,30 @@ export default function HomePage() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6', boxShadow: '0 0 6px #3b82f6' }} />
-              <span style={{ fontSize: 10, color: '#475569', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>선택된 위치</span>
+              <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>선택된 위치</span>
             </div>
             <p style={{ fontSize: 15, fontWeight: 700, color: 'white', marginBottom: 3, lineHeight: 1.3 }}>{address}</p>
-            <p style={{ fontSize: 11, color: '#334155' }}>{lat.toFixed(4)}°N · {lng.toFixed(4)}°E</p>
+            <p style={{ fontSize: 11, color: '#64748b' }}>{lat.toFixed(4)}°N · {lng.toFixed(4)}°E</p>
           </div>
 
-          {/* 탭 */}
-          <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0, padding: '0 4px' }}>
+          {/* 탭 - 2행 그리드 */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
             {TABS.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className="tab-btn"
                 style={{
-                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  gap: 3, padding: '10px 4px', fontSize: 10, fontWeight: 700,
-                  border: 'none', background: 'none', cursor: 'pointer',
-                  color: activeTab === tab.id ? '#60a5fa' : '#475569',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  gap: 3, padding: '9px 4px', fontSize: 10, fontWeight: 700,
+                  border: 'none', background: activeTab === tab.id ? 'rgba(59,130,246,0.1)' : 'none',
+                  cursor: 'pointer', whiteSpace: 'nowrap',
+                  color: activeTab === tab.id ? '#93c5fd' : '#94a3b8',
                   borderBottom: activeTab === tab.id ? '2px solid #3b82f6' : '2px solid transparent',
-                  transition: 'all 0.2s', borderRadius: '4px 4px 0 0',
-                  letterSpacing: '0.02em',
+                  transition: 'all 0.2s',
                 }}
               >
-                <span style={{ fontSize: 16 }}>{tab.icon}</span>
+                <span style={{ fontSize: 15 }}>{tab.icon}</span>
                 {tab.label}
               </button>
             ))}
@@ -298,7 +313,11 @@ export default function HomePage() {
             {activeTab === 'places' && (
               <PlacesWidget lat={lat} lng={lng} onPlacesChange={setMapPlaces} />
             )}
+            {activeTab === 'food' && <RestaurantWidget lat={lat} lng={lng} />}
             {activeTab === 'events' && <EventsWidget sido={sido} />}
+            {activeTab === 'realestate' && <RealEstateWidget sido={sido} lat={lat} lng={lng} />}
+            {activeTab === 'bus' && <BusWidget lat={lat} lng={lng} />}
+            {activeTab === 'safety' && <SafetyWidget sido={sido} />}
           </div>
 
           <div style={{ padding: '10px 18px', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
@@ -310,7 +329,7 @@ export default function HomePage() {
         <button
           onClick={() => setSidebarOpen(v => !v)}
           style={{
-            position: 'absolute', left: sidebarOpen ? 300 : 0, top: '50%', transform: 'translateY(-50%)',
+            position: 'absolute', left: sidebarOpen ? 320 : 0, top: '50%', transform: 'translateY(-50%)',
             zIndex: 200, background: 'rgba(15,23,42,0.9)',
             border: '1px solid rgba(255,255,255,0.1)',
             borderLeft: sidebarOpen ? 'none' : '1px solid rgba(255,255,255,0.1)',

@@ -1,0 +1,153 @@
+import { NextRequest, NextResponse } from 'next/server'
+
+const SIDO_LAWD: Record<string, string> = {
+  '서울': '11110', '부산': '26110', '대구': '27110', '인천': '28110',
+  '광주': '29110', '대전': '30110', '울산': '31110', '세종': '36110',
+  '경기': '41111', '강원': '42110', '충북': '43111', '충남': '44131',
+  '전북': '45111', '전남': '46110', '경북': '47111', '경남': '48121',
+  '제주': '50110',
+}
+
+async function getRegionFromCoords(lat: string, lng: string) {
+  try {
+    const res = await fetch(
+      `https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${lng}&y=${lat}`,
+      { headers: { Authorization: `KakaoAK ${process.env.KAKAO_REST_API_KEY}` }, signal: AbortSignal.timeout(5000) }
+    )
+    const data = await res.json()
+    const region = data.documents?.find((d: any) => d.region_type === 'B')
+    if (!region) return null
+    return {
+      lawdCd: region.code.slice(0, 5),
+      dongName: region.region_3depth_name || '',
+    }
+  } catch { return null }
+}
+
+function getYm(offsetMonths: number) {
+  const now = new Date(Date.now() + 9 * 60 * 60 * 1000)
+  const d = new Date(now.getUTCFullYear(), now.getUTCMonth() - offsetMonths, 1)
+  return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function getTag(str: string, tag: string) {
+  const m = str.match(new RegExp('<' + tag + '>([^<]*)<\\/' + tag + '>'))
+  return m ? m[1].trim() : ''
+}
+
+async function fetchTrade(lawdCd: string, ym: string) {
+  const key = process.env.PUBLIC_DATA_API_KEY || ''
+  const url = `https://apis.data.go.kr/1613000/RTMSDataSvcAptTradeDev/getRTMSDataSvcAptTradeDev?serviceKey=${key}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=999&pageNo=1`
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const xml = await res.text()
+    if (!xml.includes('<item>')) return []
+    return (xml.match(/<item>[\s\S]*?<\/item>/g) || []).map(item => ({
+      dealType: '매매',
+      aptNm: getTag(item, 'aptNm'),
+      aptDong: getTag(item, 'aptDong').trim(),
+      dealAmount: getTag(item, 'dealAmount').replace(/,/g, ''),
+      excluUseAr: getTag(item, 'excluUseAr'),
+      floor: getTag(item, 'floor'),
+      buildYear: getTag(item, 'buildYear'),
+      dealYear: getTag(item, 'dealYear'),
+      dealMonth: getTag(item, 'dealMonth'),
+      dealDay: getTag(item, 'dealDay'),
+      umdNm: getTag(item, 'umdNm'),
+    }))
+  } catch { return [] }
+}
+
+async function fetchRent(lawdCd: string, ym: string) {
+  const key = process.env.PUBLIC_DATA_API_KEY || ''
+  const url = `https://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent?serviceKey=${key}&LAWD_CD=${lawdCd}&DEAL_YMD=${ym}&numOfRows=999&pageNo=1`
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    const xml = await res.text()
+    // 첫 item의 태그 이름을 로그로 확인
+    if (ym === ((): string => {
+      const now = new Date(Date.now() + 9*60*60*1000)
+      const d = new Date(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)
+      return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}`
+    })()) {
+      const firstItem = xml.match(/<item>([\s\S]*?)<\/item>/)?.[1] || ''
+      const tags = [...firstItem.matchAll(/<(\w+)>/g)].map(m => m[1])
+      console.log('[rent tags]', tags.join(', '))
+      console.log('[rent sample]', firstItem.slice(0, 300))
+    }
+    if (!xml.includes('<item>')) return []
+    return (xml.match(/<item>[\s\S]*?<\/item>/g) || []).map(item => {
+      // API 실제 필드명: 월세금액, 보증금액 (한글)
+      const monthly = getTag(item, '월세금액') || getTag(item, 'monthlyRent') || '0'
+      const lease = getTag(item, '보증금액') || getTag(item, 'leaseAmount') || getTag(item, '전세금') || '0'
+      const isMonthly = parseInt(monthly.replace(/,/g, '')) > 0
+      return {
+        dealType: isMonthly ? '월세' : '전세',
+        aptNm: getTag(item, 'aptNm'),
+        aptDong: getTag(item, 'aptDong').trim(),
+        dealAmount: isMonthly
+          ? `보${lease.replace(/,/g, '')}·월${monthly.replace(/,/g, '')}`
+          : lease.replace(/,/g, ''),
+        excluUseAr: getTag(item, 'excluUseAr'),
+        floor: getTag(item, 'floor'),
+        buildYear: getTag(item, 'buildYear'),
+        dealYear: getTag(item, 'dealYear'),
+        dealMonth: getTag(item, 'dealMonth'),
+        dealDay: getTag(item, 'dealDay'),
+        umdNm: getTag(item, 'umdNm'),
+      }
+    })
+  } catch { return [] }
+}
+
+function sortByDate(items: any[]) {
+  return items.sort((a, b) => {
+    const da = `${a.dealYear}${String(a.dealMonth).padStart(2,'0')}${String(a.dealDay).padStart(2,'0')}`
+    const db = `${b.dealYear}${String(b.dealMonth).padStart(2,'0')}${String(b.dealDay).padStart(2,'0')}`
+    return db.localeCompare(da)
+  })
+}
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const sido = searchParams.get('sido') || '서울'
+  const aptNm = searchParams.get('aptNm')
+  const lat = searchParams.get('lat')
+  const lng = searchParams.get('lng')
+  const dealType = searchParams.get('dealType') || 'trade' // trade | rent
+
+  const region = lat && lng ? await getRegionFromCoords(lat, lng) : null
+  const lawdCd = region?.lawdCd || SIDO_LAWD[sido] || '11110'
+  const filterDong = region?.dongName || null
+
+  const fetcher = dealType === 'rent' ? fetchRent : fetchTrade
+
+  try {
+    if (aptNm) {
+      const months = Array.from({ length: 12 }, (_, i) => getYm(i))
+      const results = await Promise.all(months.map(ym => fetcher(lawdCd, ym)))
+      const all = results.flat().filter(i => i.aptNm === aptNm)
+      return NextResponse.json({ items: sortByDate(all), sido, lawdCd, filterDong })
+    } else {
+      const [m0, m1, m2] = await Promise.all([
+        fetcher(lawdCd, getYm(0)),
+        fetcher(lawdCd, getYm(1)),
+        fetcher(lawdCd, getYm(2)),
+      ])
+      const all = [...m0, ...m1, ...m2]
+      const filtered = filterDong
+        ? all.filter(i => i.umdNm && i.umdNm.includes(filterDong.replace('동', '')))
+        : all
+      const combined = sortByDate(filtered)
+      const latestByApt = new Map<string, any>()
+      for (const item of combined) {
+        if (!latestByApt.has(item.aptNm)) latestByApt.set(item.aptNm, item)
+      }
+      const deduped = Array.from(latestByApt.values()).sort((a, b) => a.aptNm.localeCompare(b.aptNm, 'ko'))
+      const ym = m0.length ? getYm(0) : m1.length ? getYm(1) : getYm(2)
+      return NextResponse.json({ items: deduped, dealYmd: ym, sido, lawdCd, filterDong })
+    }
+  } catch (e: any) {
+    return NextResponse.json({ items: [], error: e.message })
+  }
+}

@@ -30,7 +30,11 @@ export default function WeatherWidget({ nx, ny }: { nx: number; ny: number }) {
     </div>
   )
 
-  if (!data) return null
+  if (!data || data.error) return (
+    <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 20, border: '1px solid rgba(255,255,255,0.06)', textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+      날씨 정보를 불러올 수 없어요
+    </div>
+  )
 
   const sky = SKY_INFO[data.sky] || SKY_INFO['1']
 
@@ -49,9 +53,9 @@ export default function WeatherWidget({ nx, ny }: { nx: number; ny: number }) {
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
         {[
-          { icon: <Droplets size={11} />, label: '습도', value: `${data.humidity}%`, color: '#60a5fa' },
-          { icon: <Wind size={11} />, label: '풍속', value: `${data.wind}m/s`, color: '#a78bfa' },
-          { icon: <CloudRain size={11} />, label: '강수', value: `${data.rain}mm`, color: '#34d399' },
+          { icon: <Droplets size={11} />, label: '습도', value: data.humidity !== '--' ? `${data.humidity}%` : '--', color: '#60a5fa' },
+          { icon: <Wind size={11} />, label: '풍속', value: data.wind !== '--' ? `${data.wind}m/s` : '--', color: '#a78bfa' },
+          { icon: <CloudRain size={11} />, label: '강수', value: `${data.rain ?? 0}mm`, color: '#34d399' },
         ].map(item => (
           <div key={item.label} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '8px 10px', border: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: item.color, marginBottom: 4 }}>

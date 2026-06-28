@@ -39,10 +39,10 @@ export default function PlacesWidget({ lat, lng, onPlacesChange }: { lat: number
         {TYPES.map(t => (
           <button key={t.id} onClick={() => setType(t.id)} style={{
             padding: '8px 4px', borderRadius: 10, fontSize: 11, border: 'none',
-            cursor: 'pointer', fontWeight: 600, transition: 'all 0.2s',
-            background: type === t.id ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.04)',
-            color: type === t.id ? '#60a5fa' : '#475569',
-            outline: type === t.id ? '1px solid rgba(59,130,246,0.4)' : '1px solid rgba(255,255,255,0.05)',
+            cursor: 'pointer', fontWeight: 700, transition: 'all 0.2s',
+            background: type === t.id ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.07)',
+            color: type === t.id ? '#93c5fd' : '#94a3b8',
+            outline: type === t.id ? '1px solid rgba(59,130,246,0.5)' : '1px solid rgba(255,255,255,0.08)',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
           }}>
             <span style={{ fontSize: 18 }}>{t.emoji}</span>
@@ -60,11 +60,11 @@ export default function PlacesWidget({ lat, lng, onPlacesChange }: { lat: number
       ) : places.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '32px 0' }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>{activeType?.emoji}</div>
-          <p style={{ color: '#334155', fontSize: 13 }}>주변 1km 내 {activeType?.label}이 없어요</p>
+          <p style={{ color: '#94a3b8', fontSize: 13 }}>주변 1km 내 {activeType?.label}이 없어요</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <p style={{ fontSize: 10, color: '#475569', fontWeight: 700, marginBottom: 2, letterSpacing: '0.05em' }}>
+          <p style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, marginBottom: 2, letterSpacing: '0.05em' }}>
             {activeType?.emoji} 주변 {activeType?.label} {places.length}곳
           </p>
           {places.map((p, i) => (
@@ -83,10 +83,10 @@ export default function PlacesWidget({ lat, lng, onPlacesChange }: { lat: number
               }}>{i + 1}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 13, color: 'white', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</p>
-                {p.address && <p style={{ fontSize: 10, color: '#334155', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.address}</p>}
+                {p.address && <p style={{ fontSize: 10, color: '#64748b', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.address}</p>}
               </div>
               {p.distance && (
-                <div style={{ fontSize: 11, color: '#475569', fontWeight: 600, flexShrink: 0 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, flexShrink: 0 }}>
                   {Number(p.distance) >= 1000 ? (Number(p.distance)/1000).toFixed(1)+'km' : p.distance+'m'}
                 </div>
               )}

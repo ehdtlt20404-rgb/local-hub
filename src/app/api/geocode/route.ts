@@ -13,10 +13,13 @@ export async function GET(req: NextRequest) {
     })
     const result = res.data[0]
     if (!result) return NextResponse.json({ error: 'not found' }, { status: 404 })
+    const addr = result.address || {}
+    const province = addr.province || addr.state || addr.city || ''
     return NextResponse.json({
       lat: parseFloat(result.lat),
       lng: parseFloat(result.lon),
       display_name: result.display_name,
+      province,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

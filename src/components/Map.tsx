@@ -43,7 +43,7 @@ interface Props {
 
 export default function Map({ lat, lng, address, onMapClick, places = [] }: Props) {
   return (
-    <MapContainer center={[lat, lng]} zoom={15} style={{ width: '100%', height: '100%' }}>
+    <MapContainer key={`map`} center={[lat, lng]} zoom={15} style={{ width: '100%', height: '100%' }}>
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

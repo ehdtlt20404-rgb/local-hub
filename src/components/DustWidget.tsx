@@ -22,8 +22,10 @@ export default function DustWidget({ sido }: { sido: string }) {
       .catch(() => setLoading(false))
   }, [sido])
 
-  const avg10 = items.length ? Math.round(items.reduce((s, i) => s + Number(i.pm10Value || 0), 0) / items.length) : null
-  const avg25 = items.length ? Math.round(items.reduce((s, i) => s + Number(i.pm25Value || 0), 0) / items.length) : null
+  const valid10 = items.map(i => Number(i.pm10Value)).filter(n => !isNaN(n) && n > 0)
+  const valid25 = items.map(i => Number(i.pm25Value)).filter(n => !isNaN(n) && n > 0)
+  const avg10 = valid10.length ? Math.round(valid10.reduce((s, n) => s + n, 0) / valid10.length) : null
+  const avg25 = valid25.length ? Math.round(valid25.reduce((s, n) => s + n, 0) / valid25.length) : null
   const grade = avg10 == null ? null : avg10 <= 30 ? '1' : avg10 <= 80 ? '2' : avg10 <= 150 ? '3' : '4'
   const g = grade ? GRADE[grade] : null
 

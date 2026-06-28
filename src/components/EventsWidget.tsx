@@ -46,38 +46,38 @@ export default function EventsWidget({ sido }: { sido: string }) {
   )
 
   if (events.length === 0) return (
-    <div style={{ textAlign: 'center', padding: '32px 0', color: '#94a3b8', fontSize: 13 }}>
+    <div style={{ textAlign: 'center', padding: '32px 0', color: '#cbd5e1', fontSize: 13 }}>
       현재 진행 중인 행사가 없어요
     </div>
   )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <p style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginBottom: 4, letterSpacing: '0.05em' }}>
+      <p style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 600, marginBottom: 4, letterSpacing: '0.05em' }}>
         {sido} 지역 행사 · 축제
       </p>
       {events.map((ev, i) => (
         <div key={ev.contentid || i} style={{
-          background: '#f8fafc', borderRadius: 10, overflow: 'hidden',
-          border: '1px solid #f1f5f9', display: 'flex', gap: 0
+          background: 'rgba(255,255,255,0.05)', borderRadius: 10, overflow: 'hidden',
+          border: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: 0
         }}>
           {ev.firstimage ? (
             <img src={ev.firstimage} alt={ev.title} style={{ width: 72, height: 72, objectFit: 'cover', flexShrink: 0 }} />
           ) : (
-            <div style={{ width: 72, height: 72, background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 24 }}>
+            <div style={{ width: 72, height: 72, background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 24 }}>
               🎪
             </div>
           )}
           <div style={{ padding: '8px 10px', flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'white', marginBottom: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {ev.title}
             </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#cbd5e1', marginBottom: 2 }}>
               <Calendar size={10} />
               {formatDate(ev.eventstartdate)} ~ {formatDate(ev.eventenddate)}
             </div>
             {ev.addr1 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#94a3b8' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#cbd5e1' }}>
                 <MapPin size={10} />
                 <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.addr1}</span>
               </div>
