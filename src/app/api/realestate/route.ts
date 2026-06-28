@@ -131,12 +131,10 @@ export async function GET(req: NextRequest) {
       }
       return NextResponse.json({ items: sortByDate(all), sido, lawdCd, filterDong })
     } else {
-      const [m0, m1, m2] = await Promise.all([
-        fetchItems(lawdCd, getYm(0), propType, dealType),
-        fetchItems(lawdCd, getYm(1), propType, dealType),
-        fetchItems(lawdCd, getYm(2), propType, dealType),
-      ])
-      const all = [...m0, ...m1, ...m2]
+      const months6 = await Promise.all(
+        Array.from({ length: 6 }, (_, i) => fetchItems(lawdCd, getYm(i), propType, dealType))
+      )
+      const all = months6.flat()
       const filtered = filterDong
         ? all.filter(i => i.umdNm && i.umdNm.includes(filterDong.replace('동', '')))
         : all
