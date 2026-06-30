@@ -10,6 +10,12 @@ const CATEGORY_MAP: Record<string, string> = {
   bank: 'BK9',
 }
 
+// 카테고리 코드 없이 키워드 검색을 쓰는 타입
+const KEYWORD_MAP: Record<string, string> = {
+  park: '공원',
+  police: '파출소 지구대',
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const lat = searchParams.get('lat') || '37.5665'
@@ -20,12 +26,23 @@ export async function GET(req: NextRequest) {
   const headers = { Authorization: `KakaoAK ${key}` }
 
   try {
-    const res = await axios.get('https://dapi.kakao.com/v2/local/search/category.json', {
-      headers,
-      params: { category_group_code: CATEGORY_MAP[type], x: lng, y: lat, radius: 1000, size: 15 },
-      timeout: 8000,
-    })
-    const items = res.data?.documents || []
+    let items: any[] = []
+
+    if (KEYWORD_MAP[type]) {
+      const res = await axios.get('https://dapi.kakao.com/v2/local/search/keyword.json', {
+        headers,
+        params: { query: KEYWORD_MAP[type], x: lng, y: lat, radius: 1500, size: 15, sort: 'distance' },
+        timeout: 8000,
+      })
+      items = res.data?.documents || []
+    } else if (CATEGORY_MAP[type]) {
+      const res = await axios.get('https://dapi.kakao.com/v2/local/search/category.json', {
+        headers,
+        params: { category_group_code: CATEGORY_MAP[type], x: lng, y: lat, radius: 1000, size: 15 },
+        timeout: 8000,
+      })
+      items = res.data?.documents || []
+    }
 
     const places = items.map((el: any) => ({
       id: el.id,

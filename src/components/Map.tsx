@@ -13,10 +13,10 @@ const icon = L.icon({
 
 const PLACE_COLORS: Record<string, string> = {
   pharmacy: '#8b5cf6', hospital: '#ef4444', convenience: '#f59e0b',
-  cafe: '#10b981', subway: '#3b82f6', bank: '#06b6d4',
+  cafe: '#10b981', subway: '#3b82f6', bank: '#06b6d4', park: '#22c55e',
 }
-const PLACE_EMOJI: Record<string, string> = { pharmacy: '💊', hospital: '🏥', convenience: '🏪', cafe: '☕', subway: '🚇', bank: '🏦' }
-const PLACE_LABEL: Record<string, string> = { pharmacy: '약국', hospital: '병원', convenience: '편의점', cafe: '카페', subway: '지하철', bank: '은행' }
+const PLACE_EMOJI: Record<string, string> = { pharmacy: '💊', hospital: '🏥', convenience: '🏪', cafe: '☕', subway: '🚇', bank: '🏦', park: '🌳' }
+const PLACE_LABEL: Record<string, string> = { pharmacy: '약국', hospital: '병원', convenience: '편의점', cafe: '카페', subway: '지하철', bank: '은행', park: '공원' }
 const DEAL_COLOR: Record<string, string> = { '매매': '#34d399', '전세': '#60a5fa', '월세': '#f59e0b' }
 
 interface Place { id: number; name: string; lat: number; lng: number; type: string; address?: string; phone?: string; distance?: string }

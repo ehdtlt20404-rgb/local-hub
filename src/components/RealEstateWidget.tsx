@@ -538,6 +538,39 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
         </p>
       </div>
 
+      {/* 전월세 보증금 보호 안내 */}
+      {dealTab === 'rent' && (
+        <div style={{ background: 'rgba(234,179,8,0.06)', borderRadius: 10, padding: '10px 12px', border: '1px solid rgba(234,179,8,0.18)' }}>
+          <p style={{ fontSize: 11, color: '#fbbf24', fontWeight: 700, marginBottom: 6 }}>🔒 전월세 보증금 보호 필수 확인</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {[
+              { icon: '📋', text: '전입신고 + 확정일자', desc: '계약 당일 동주민센터 방문 필수', color: '#fbbf24' },
+              { icon: '🏠', text: '전세보증보험 가입', desc: 'HUG(주택도시보증공사) 보증금 보호', color: '#34d399' },
+              { icon: '🔍', text: '등기부등본 확인', desc: '근저당·압류 여부 반드시 확인', color: '#60a5fa' },
+              { icon: '⚖️', text: '계약서 특약 기재', desc: '묵시적 갱신·수선비 등 명시 권장', color: '#a78bfa' },
+            ].map(item => (
+              <div key={item.text} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <span style={{ fontSize: 14, flexShrink: 0 }}>{item.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: item.color }}>{item.text}</p>
+                  <p style={{ fontSize: 10, color: '#64748b', marginTop: 1 }}>{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+            <a href="https://www.khug.or.kr" target="_blank" rel="noreferrer" style={{
+              flex: 1, textAlign: 'center', padding: '6px 0', borderRadius: 7, fontSize: 10, fontWeight: 700,
+              background: 'rgba(52,211,153,0.15)', color: '#34d399', textDecoration: 'none', border: '1px solid rgba(52,211,153,0.25)',
+            }}>HUG 전세보증보험</a>
+            <a href="https://www.iros.go.kr" target="_blank" rel="noreferrer" style={{
+              flex: 1, textAlign: 'center', padding: '6px 0', borderRadius: 7, fontSize: 10, fontWeight: 700,
+              background: 'rgba(96,165,250,0.15)', color: '#60a5fa', textDecoration: 'none', border: '1px solid rgba(96,165,250,0.25)',
+            }}>등기부등본 열람</a>
+          </div>
+        </div>
+      )}
+
       {/* 전국 시세 비교 */}
       <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
         <button

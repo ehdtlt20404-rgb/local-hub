@@ -14,6 +14,7 @@ const TYPES = [
   { id: 'cafe', label: '카페', emoji: '☕' },
   { id: 'subway', label: '지하철', emoji: '🚇' },
   { id: 'bank', label: '은행', emoji: '🏦' },
+  { id: 'park', label: '공원', emoji: '🌳' },
 ]
 
 function isLikelyOpen(name: string): 'open24' | 'unknown' {
@@ -67,7 +68,7 @@ export default function PlacesWidget({ lat, lng, onPlacesChange }: {
       )}
 
       {/* 카테고리 버튼 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6, marginBottom: 14 }}>
         {TYPES.map(t => (
           <button key={t.id} onClick={() => setType(t.id)} style={{
             padding: '8px 4px', borderRadius: 10, fontSize: 11, border: 'none',
@@ -92,7 +93,7 @@ export default function PlacesWidget({ lat, lng, onPlacesChange }: {
       ) : places.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '32px 0' }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>{activeType?.emoji}</div>
-          <p style={{ color: '#94a3b8', fontSize: 13 }}>주변 1km 내 {activeType?.label}이 없어요</p>
+          <p style={{ color: '#94a3b8', fontSize: 13 }}>주변 1.5km 내 {activeType?.label}이 없어요</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

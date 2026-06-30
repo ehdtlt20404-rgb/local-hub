@@ -1,9 +1,5 @@
 'use client'
-
-interface CrimeStat {
-  crimeType?: string; count?: number; year?: string;
-  [key: string]: any
-}
+import { useEffect, useState } from 'react'
 
 const CRIME_LABELS: Record<string, { label: string; emoji: string; color: string }> = {
   '살인': { label: '살인', emoji: '🔴', color: '#ef4444' },
@@ -13,7 +9,6 @@ const CRIME_LABELS: Record<string, { label: string; emoji: string; color: string
   '폭력': { label: '폭력', emoji: '🟣', color: '#8b5cf6' },
 }
 
-// 안전 등급 계산 (임시: count 기반)
 function safetyGrade(total: number) {
   if (total < 1000) return { grade: 'A', label: '매우 안전', color: '#34d399' }
   if (total < 5000) return { grade: 'B', label: '안전', color: '#60a5fa' }
@@ -22,7 +17,6 @@ function safetyGrade(total: number) {
   return { grade: 'E', label: '위험', color: '#ef4444' }
 }
 
-// 경찰청 2023년 5대 범죄 시도별 통계 (단위: 건)
 const SIDO_CRIME: Record<string, { type: string; count: number; prev: number }[]> = {
   '서울': [{ type: '살인', count: 89, prev: 102 }, { type: '강도', count: 312, prev: 341 }, { type: '성범죄', count: 4821, prev: 5103 }, { type: '절도', count: 38421, prev: 41230 }, { type: '폭력', count: 54591, prev: 57824 }],
   '부산': [{ type: '살인', count: 38, prev: 43 }, { type: '강도', count: 121, prev: 138 }, { type: '성범죄', count: 1823, prev: 1941 }, { type: '절도', count: 15234, prev: 16820 }, { type: '폭력', count: 24607, prev: 26211 }],
@@ -43,8 +37,23 @@ const SIDO_CRIME: Record<string, { type: string; count: number; prev: number }[]
   '제주': [{ type: '살인', count: 9, prev: 11 }, { type: '강도', count: 28, prev: 32 }, { type: '성범죄', count: 423, prev: 461 }, { type: '절도', count: 3234, prev: 3580 }, { type: '폭력', count: 6129, prev: 6720 }],
 }
 
-export default function SafetyWidget({ sido }: { sido: string }) {
-  const loading = false
+interface PolicePlace { name: string; distance: string; phone: string; url: string }
+
+export default function SafetyWidget({ sido, lat, lng }: { sido: string; lat?: number; lng?: number }) {
+  const [police, setPolice] = useState<PolicePlace[]>([])
+  const [policeLoading, setPoliceLoading] = useState(false)
+
+  useEffect(() => {
+    if (!lat || !lng) return
+    setPoliceLoading(true)
+    fetch(`/api/places?lat=${lat}&lng=${lng}&type=police`)
+      .then(r => r.json())
+      .then(d => {
+        setPolice((d.places || []).slice(0, 5))
+        setPoliceLoading(false)
+      })
+      .catch(() => setPoliceLoading(false))
+  }, [lat, lng])
 
   const fallbackData = SIDO_CRIME[sido] || SIDO_CRIME['서울']
   const totalFallback = fallbackData.reduce((s, d) => s + d.count, 0)
@@ -74,59 +83,83 @@ export default function SafetyWidget({ sido }: { sido: string }) {
         </div>
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '20px 0', color: '#475569', fontSize: 12 }}>통계 불러오는 중...</div>
-      ) : (
-        <>
-          {/* 5대 범죄 현황 */}
-          <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <p style={{ fontSize: 11, color: '#64748b', fontWeight: 700, marginBottom: 10 }}>📊 5대 범죄 발생 현황 (2023년)</p>
-            {fallbackData.map(d => {
-              const info = Object.values(CRIME_LABELS).find(c => c.label === d.type) || { color: '#94a3b8', emoji: '•' }
-              const maxCount = Math.max(...fallbackData.map(x => x.count))
-              const pct = Math.round((d.count / maxCount) * 100)
-              const diff = d.count - d.prev
-              return (
-                <div key={d.type} style={{ marginBottom: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                    <span style={{ fontSize: 11, color: '#94a3b8' }}>{info.emoji} {d.type}</span>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span style={{ fontSize: 10, color: diff < 0 ? '#34d399' : '#f97316' }}>
-                        {diff < 0 ? `▼${Math.abs(diff)}` : `▲${diff}`}
-                      </span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'white' }}>{d.count.toLocaleString()}건</span>
-                    </div>
-                  </div>
-                  <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 4, height: 4, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${pct}%`, background: info.color, borderRadius: 4, transition: 'width 0.5s' }} />
+      {/* 5대 범죄 현황 */}
+      <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <p style={{ fontSize: 11, color: '#64748b', fontWeight: 700, marginBottom: 10 }}>📊 5대 범죄 발생 현황 (2023년)</p>
+        {fallbackData.map(d => {
+          const info = Object.values(CRIME_LABELS).find(c => c.label === d.type) || { color: '#94a3b8', emoji: '•' }
+          const maxCount = Math.max(...fallbackData.map(x => x.count))
+          const pct = Math.round((d.count / maxCount) * 100)
+          const diff = d.count - d.prev
+          return (
+            <div key={d.type} style={{ marginBottom: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                <span style={{ fontSize: 11, color: '#94a3b8' }}>{info.emoji} {d.type}</span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ fontSize: 10, color: diff < 0 ? '#34d399' : '#f97316' }}>
+                    {diff < 0 ? `▼${Math.abs(diff)}` : `▲${diff}`}
+                  </span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'white' }}>{d.count.toLocaleString()}건</span>
+                </div>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 4, height: 4, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${pct}%`, background: info.color, borderRadius: 4, transition: 'width 0.5s' }} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* 주변 파출소·지구대 */}
+      <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <p style={{ fontSize: 11, color: '#64748b', fontWeight: 700, marginBottom: 8 }}>🚔 주변 파출소·지구대</p>
+        {policeLoading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {[...Array(3)].map((_, i) => <div key={i} style={{ height: 36, borderRadius: 8, background: 'rgba(255,255,255,0.05)', animation: 'shimmer 1.4s infinite' }} />)}
+          </div>
+        ) : police.length === 0 ? (
+          <p style={{ fontSize: 11, color: '#475569', textAlign: 'center', padding: '10px 0' }}>주변 1.5km 내 파출소 정보가 없어요</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <p style={{ fontSize: 10, color: '#475569', marginBottom: 2 }}>1.5km 이내 {police.length}곳</p>
+            {police.map((p, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', background: 'rgba(59,130,246,0.06)', borderRadius: 8, border: '1px solid rgba(59,130,246,0.12)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 15 }}>🚔</span>
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: 'white' }}>{p.name}</p>
+                    {p.phone && <a href={`tel:${p.phone}`} style={{ fontSize: 10, color: '#60a5fa', textDecoration: 'none' }}>{p.phone}</a>}
                   </div>
                 </div>
-              )
-            })}
-          </div>
-
-          {/* 안전 팁 */}
-          <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <p style={{ fontSize: 11, color: '#64748b', fontWeight: 700, marginBottom: 8 }}>💡 안전 정보</p>
-            {[
-              { icon: '🚨', text: '범죄 신고', sub: '112' },
-              { icon: '🚑', text: '응급 신고', sub: '119' },
-              { icon: '📞', text: '여성긴급전화', sub: '1366' },
-              { icon: '🛡', text: '범죄피해자 지원', sub: '1301' },
-            ].map(item => (
-              <div key={item.text} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: '#94a3b8' }}>{item.icon} {item.text}</span>
-                <a href={`tel:${item.sub}`} style={{
-                  fontSize: 12, fontWeight: 700, color: '#60a5fa', textDecoration: 'none',
-                  background: 'rgba(59,130,246,0.1)', borderRadius: 6, padding: '2px 8px',
-                }}>{item.sub}</a>
+                <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
+                  {Number(p.distance) >= 1000 ? (Number(p.distance)/1000).toFixed(1)+'km' : p.distance+'m'}
+                </span>
               </div>
             ))}
           </div>
+        )}
+      </div>
 
-          <p style={{ fontSize: 10, color: '#475569', textAlign: 'center' }}>출처: 경찰청 범죄통계 2023년 기준</p>
-        </>
-      )}
+      {/* 안전 팁 */}
+      <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: '12px 14px', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <p style={{ fontSize: 11, color: '#64748b', fontWeight: 700, marginBottom: 8 }}>💡 긴급 연락처</p>
+        {[
+          { icon: '🚨', text: '범죄 신고', sub: '112' },
+          { icon: '🚑', text: '응급 신고', sub: '119' },
+          { icon: '📞', text: '여성긴급전화', sub: '1366' },
+          { icon: '🛡', text: '범죄피해자 지원', sub: '1301' },
+        ].map(item => (
+          <div key={item.text} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ fontSize: 11, color: '#94a3b8' }}>{item.icon} {item.text}</span>
+            <a href={`tel:${item.sub}`} style={{
+              fontSize: 12, fontWeight: 700, color: '#60a5fa', textDecoration: 'none',
+              background: 'rgba(59,130,246,0.1)', borderRadius: 6, padding: '2px 8px',
+            }}>{item.sub}</a>
+          </div>
+        ))}
+      </div>
+
+      <p style={{ fontSize: 10, color: '#475569', textAlign: 'center' }}>출처: 경찰청 범죄통계 2023년 기준</p>
     </div>
   )
 }
