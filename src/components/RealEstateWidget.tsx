@@ -468,7 +468,7 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
               <p style={{ fontSize: 9, color: '#475569' }}>
-                실거래 신고 기준 · 단지 {filteredItems.length}개{items.length !== filteredItems.length ? ` (전체 ${items.length}개)` : ''}
+                국토부 실거래 신고 기준 · 단지 {filteredItems.length}개{items.length !== filteredItems.length ? ` (전체 ${items.length}개)` : ''}
               </p>
               {loadingFull && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -528,6 +528,15 @@ export default function RealEstateWidget({ sido, lat, lng, onItemsChange, extern
           ))}
         </div>
       )}
+
+      {/* 데이터 안내 */}
+      <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <p style={{ fontSize: 10, color: '#475569', lineHeight: 1.6 }}>
+          ℹ️ <b style={{ color: '#64748b' }}>국토부 실거래가 신고 기준</b>으로, 계약 후 신고까지 최대 1~2개월 소요됩니다.<br />
+          원룸·빌라·월세는 신고 누락이 많아 <b style={{ color: '#64748b' }}>실제 거래보다 적게 표시</b>될 수 있습니다.<br />
+          현재 나와있는 매물 확인은 네이버 부동산·직방을 이용하세요.
+        </p>
+      </div>
 
       {/* 전국 시세 비교 */}
       <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>

@@ -525,7 +525,7 @@ export default function HomePage() {
             <input
               value={searchInput}
               onChange={e => handleSearchInputChange(e.target.value)}
-              placeholder="동네 이름을 입력하세요  (예: 강남구)"
+              placeholder="동네·장소 검색  (예: 강남구, 스타벅스)"
               style={{
                 width: '100%', paddingLeft: 42, paddingRight: searchInput ? 36 : 14,
                 paddingTop: 12, paddingBottom: 12,
@@ -568,6 +568,9 @@ export default function HomePage() {
                     {s.province && <span style={{ fontSize: 13, color: '#64748b', flexShrink: 0 }}>{s.province}</span>}
                   </button>
                 ))}
+                <div style={{ padding: '8px 14px', borderTop: '1px solid #f1f5f9' }}>
+                  <p style={{ fontSize: 11, color: '#94a3b8' }}>일부 위치는 검색이 안 될 수 있어요</p>
+                </div>
               </div>
             )}
           </form>
