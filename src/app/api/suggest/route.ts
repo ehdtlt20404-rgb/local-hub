@@ -16,67 +16,93 @@ export async function GET(req: NextRequest) {
   const headers = { Authorization: `KakaoAK ${process.env.KAKAO_REST_API_KEY}` }
   const sidoFull = SIDO_FULL[sido] || ''
 
+  const toItem = (d: any, type: 'place' | 'address') => ({
+    name: type === 'place' ? d.place_name : d.address_name,
+    lat: parseFloat(d.y),
+    lng: parseFloat(d.x),
+    province: type === 'place'
+      ? (d.address_name || '').split(' ')[0]
+      : (d.address?.region_1depth_name || d.road_address?.region_1depth_name || (d.address_name || '').split(' ')[0] || ''),
+    category: type === 'place' ? (d.category_group_name || '') : '',
+    type,
+  })
+
+  const seen = new Set<string>()
+  const dedup = (items: any[]) => items.filter(i => {
+    const key = `${i.lat.toFixed(4)}_${i.lng.toFixed(4)}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  const isLocal = (item: any) => {
+    if (!sidoFull) return true
+    const p = item.province || ''
+    return p.startsWith(sido) || p.startsWith(sidoFull) || p.includes(sido)
+  }
+
   try {
-    // 3가지 검색을 동시에 실행
-    // 1) 건물명/장소명 그대로 검색 (sido 없이) → 하랑캐슬, 스타벅스 등
-    // 2) 주소 검색 (sido 포함) → 괴정동, 서구 등 동네 검색
-    // 3) 건물명 + sido 검색 → 지역 내 동명이인 건물 우선
-    const [kwRaw, addrWithSido, kwWithSido] = await Promise.all([
+    if (sidoFull) {
+      // 지역이 선택된 경우: sido 범위 내에서만 검색
+      const [kwSido, addrSido] = await Promise.all([
+        fetch(
+          `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(`${sidoFull} ${q}`)}&size=7`,
+          { headers, signal: AbortSignal.timeout(4000) }
+        ).then(r => r.json()).catch(() => ({ documents: [] })),
+        fetch(
+          `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(`${sidoFull} ${q}`)}&size=7`,
+          { headers, signal: AbortSignal.timeout(4000) }
+        ).then(r => r.json()).catch(() => ({ documents: [] })),
+      ])
+
+      const kwItems = (kwSido.documents || []).map((d: any) => toItem(d, 'place')).filter(isLocal)
+      const addrItems = (addrSido.documents || []).map((d: any) => toItem(d, 'address')).filter(isLocal)
+
+      const local = dedup([...kwItems, ...addrItems])
+
+      if (local.length > 0) {
+        return NextResponse.json(local.slice(0, 7))
+      }
+
+      // 로컬 결과 없으면 sido 없이 검색하되 결과에 지역 표시 (타 지역 명시)
+      const [kwGlobal, addrGlobal] = await Promise.all([
+        fetch(
+          `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=5`,
+          { headers, signal: AbortSignal.timeout(4000) }
+        ).then(r => r.json()).catch(() => ({ documents: [] })),
+        fetch(
+          `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(q)}&size=5`,
+          { headers, signal: AbortSignal.timeout(4000) }
+        ).then(r => r.json()).catch(() => ({ documents: [] })),
+      ])
+
+      const globalItems = dedup([
+        ...(kwGlobal.documents || []).map((d: any) => toItem(d, 'place')),
+        ...(addrGlobal.documents || []).map((d: any) => toItem(d, 'address')),
+      ])
+
+      // 타 지역 결과임을 표시
+      return NextResponse.json(globalItems.slice(0, 7).map(i => ({ ...i, otherRegion: true })))
+    }
+
+    // 지역 미선택: 전국 검색
+    const [kwGlobal, addrGlobal] = await Promise.all([
       fetch(
-        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=5`,
+        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=7`,
         { headers, signal: AbortSignal.timeout(4000) }
       ).then(r => r.json()).catch(() => ({ documents: [] })),
-
       fetch(
-        `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(sidoFull ? `${sidoFull} ${q}` : q)}&size=5`,
+        `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(q)}&size=7`,
         { headers, signal: AbortSignal.timeout(4000) }
       ).then(r => r.json()).catch(() => ({ documents: [] })),
-
-      sidoFull ? fetch(
-        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(`${sidoFull} ${q}`)}&size=5`,
-        { headers, signal: AbortSignal.timeout(4000) }
-      ).then(r => r.json()).catch(() => ({ documents: [] })) : Promise.resolve({ documents: [] }),
     ])
 
-    // 결과 파싱
-    const toItem = (d: any, type: 'place' | 'address') => ({
-      name: type === 'place' ? d.place_name : d.address_name,
-      lat: parseFloat(d.y),
-      lng: parseFloat(d.x),
-      province: type === 'place'
-        ? (d.address_name || '').split(' ')[0]
-        : (d.address?.region_1depth_name || d.road_address?.region_1depth_name || ''),
-      category: type === 'place' ? (d.category_group_name || '') : '',
-      type,
-    })
+    const all = dedup([
+      ...(kwGlobal.documents || []).map((d: any) => toItem(d, 'place')),
+      ...(addrGlobal.documents || []).map((d: any) => toItem(d, 'address')),
+    ])
 
-    const kwItems = (kwRaw.documents || []).map((d: any) => toItem(d, 'place'))
-    const addrItems = (addrWithSido.documents || []).map((d: any) => toItem(d, 'address'))
-    const kwSidoItems = (kwWithSido.documents || []).map((d: any) => toItem(d, 'place'))
-
-    // 중복 제거 (위경도 기준)
-    const seen = new Set<string>()
-    const dedup = (items: any[]) => items.filter(i => {
-      const key = `${i.lat.toFixed(4)}_${i.lng.toFixed(4)}`
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-
-    // 현재 sido 지역 결과인지 확인
-    const isLocal = (item: any) =>
-      sidoFull && (item.province.includes(sido) || item.province.includes(sidoFull))
-
-    // 합치기: 현재 지역 결과 먼저, 그 다음 전국 결과
-    // 순서: 지역 키워드(sido+q) → 지역 주소 → 전국 키워드
-    const localKw = dedup(kwSidoItems.filter(isLocal))
-    const localAddr = dedup(addrItems.filter(isLocal))
-    const globalKw = dedup(kwItems)
-    const restAddr = dedup(addrItems)
-
-    const merged = [...localKw, ...localAddr, ...globalKw, ...restAddr]
-
-    return NextResponse.json(merged.slice(0, 7))
+    return NextResponse.json(all.slice(0, 7))
   } catch {
     return NextResponse.json([])
   }

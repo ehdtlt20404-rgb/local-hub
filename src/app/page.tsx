@@ -81,7 +81,7 @@ export default function HomePage() {
   const [sido, setSido] = useState('서울')
   const [activeTab, setActiveTab] = useState<TabId>('weather')
   const [searching, setSearching] = useState(false)
-  const [suggestions, setSuggestions] = useState<{ name: string; lat: number; lng: number; province: string; category?: string; type?: string }[]>([])
+  const [suggestions, setSuggestions] = useState<{ name: string; lat: number; lng: number; province: string; category?: string; type?: string; otherRegion?: boolean }[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [mapPlaces, setMapPlaces] = useState<any[]>([])
@@ -553,6 +553,11 @@ export default function HomePage() {
                 borderRadius: '0 0 12px 12px', overflow: 'hidden',
                 boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
               }}>
+                {suggestions.some(s => s.otherRegion) && (
+                  <div style={{ padding: '6px 14px', background: '#fef9c3', borderBottom: '1px solid #fde047' }}>
+                    <p style={{ fontSize: 11, color: '#854d0e' }}>⚠️ {sido} 내 결과 없음 — 다른 지역 결과입니다</p>
+                  </div>
+                )}
                 {suggestions.map((s, i) => (
                   <button key={i} type="button" onMouseDown={() => applySuggestion(s)} style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
@@ -565,7 +570,7 @@ export default function HomePage() {
                       <span style={{ fontSize: 15, fontWeight: 600 }}>{s.name}</span>
                       {s.category && <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 6 }}>{s.category}</span>}
                     </div>
-                    {s.province && <span style={{ fontSize: 13, color: '#64748b', flexShrink: 0 }}>{s.province}</span>}
+                    {s.province && <span style={{ fontSize: 13, color: s.otherRegion ? '#f97316' : '#64748b', flexShrink: 0 }}>{s.province}</span>}
                   </button>
                 ))}
                 <div style={{ padding: '8px 14px', borderTop: '1px solid #f1f5f9' }}>
@@ -622,6 +627,11 @@ export default function HomePage() {
               border: '1px solid rgba(59,130,246,0.3)', borderTop: 'none',
               borderRadius: '0 0 10px 10px', overflow: 'hidden',
             }}>
+              {suggestions.some(s => s.otherRegion) && (
+                <div style={{ padding: '6px 12px', background: 'rgba(251,191,36,0.1)', borderBottom: '1px solid rgba(251,191,36,0.2)' }}>
+                  <p style={{ fontSize: 10, color: '#fbbf24' }}>⚠️ {sido} 내 결과 없음 — 다른 지역 결과</p>
+                </div>
+              )}
               {suggestions.map((s, i) => (
                 <button key={i} type="button" onMouseDown={() => applySuggestion(s)} style={{
                   display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
@@ -637,7 +647,7 @@ export default function HomePage() {
                     <span style={{ fontSize: 12, fontWeight: 600 }}>{s.name}</span>
                     {s.category && <span style={{ fontSize: 10, color: '#475569', marginLeft: 5 }}>{s.category}</span>}
                   </div>
-                  {s.province && <span style={{ fontSize: 10, color: '#475569', flexShrink: 0 }}>{s.province}</span>}
+                  {s.province && <span style={{ fontSize: 10, color: s.otherRegion ? '#f97316' : '#475569', flexShrink: 0 }}>{s.province}</span>}
                 </button>
               ))}
             </div>
