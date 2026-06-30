@@ -450,7 +450,7 @@ export default function HomePage() {
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: '#0f172a', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: isMobile ? '#f0f4f8' : '#0f172a', overflow: 'hidden' }}>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
@@ -461,27 +461,119 @@ export default function HomePage() {
         .tab-btn:hover { background: rgba(255,255,255,0.07) !important; }
         .icon-btn:hover { background: rgba(59,130,246,0.25) !important; }
         .sido-select option { background: #1e293b; color: white; }
-        input::placeholder { color: #475569; }
+        input::placeholder { color: #94a3b8; }
         .mobile-tabs::-webkit-scrollbar { display: none; }
+        .m-tab-btn:active { opacity: 0.7; }
       `}</style>
 
-      {/* 헤더 */}
+      {/* 모바일 헤더 */}
+      {isMobile ? (
+        <header style={{
+          background: '#ffffff',
+          borderBottom: '1px solid #e2e8f0',
+          padding: '10px 14px',
+          display: 'flex', flexDirection: 'column', gap: 10,
+          flexShrink: 0, zIndex: 100,
+          boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+        }}>
+          {/* 로고 + 지역선택 + 내 위치 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', borderRadius: 10, padding: '6px 7px' }}>
+                <MapPin size={16} color="white" />
+              </div>
+              <span style={{ fontWeight: 800, fontSize: 17, color: '#1e293b' }}>동네허브</span>
+            </div>
+            <div style={{ flex: 1 }} />
+            <div style={{ position: 'relative' }}>
+              <select value={sido} onChange={e => handleSidoChange(e.target.value)} style={{
+                appearance: 'none', border: '1.5px solid #e2e8f0', borderRadius: 10,
+                padding: '8px 28px 8px 12px', fontSize: 14,
+                color: '#1e293b', background: '#f8fafc', cursor: 'pointer', outline: 'none', fontWeight: 600,
+              }}>
+                {SIDO_LIST.map(s => <option key={s}>{s}</option>)}
+              </select>
+              <ChevronDown size={13} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
+            </div>
+            <button onClick={handleCurrentLocation} style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              background: '#eff6ff', color: '#2563eb',
+              border: '1.5px solid #bfdbfe', borderRadius: 10,
+              padding: '8px 12px', fontSize: 14, fontWeight: 700,
+              cursor: 'pointer', whiteSpace: 'nowrap',
+            }}>
+              <Navigation size={15} />내 위치
+            </button>
+          </div>
+
+          {/* 검색창 */}
+          <form onSubmit={handleSearch} style={{ position: 'relative' }}>
+            <Search size={17} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none', zIndex: 1 }} />
+            <input
+              value={searchInput}
+              onChange={e => handleSearchInputChange(e.target.value)}
+              placeholder="동네 이름을 입력하세요  (예: 강남구)"
+              style={{
+                width: '100%', paddingLeft: 42, paddingRight: searchInput ? 36 : 14,
+                paddingTop: 12, paddingBottom: 12,
+                border: '1.5px solid #e2e8f0',
+                borderRadius: showSuggestions ? '12px 12px 0 0' : 12,
+                fontSize: 15, outline: 'none',
+                background: '#f8fafc', color: '#1e293b',
+              }}
+              onFocus={e => { e.target.style.borderColor = '#3b82f6'; e.target.style.background = '#fff'; if (suggestions.length > 0) setShowSuggestions(true) }}
+              onBlur={e => { e.target.style.borderColor = '#e2e8f0'; e.target.style.background = '#f8fafc'; setTimeout(() => setShowSuggestions(false), 150) }}
+            />
+            {searchInput && !searching && (
+              <button type="button" onClick={() => { setSearchInput(''); setSuggestions([]); setShowSuggestions(false) }}
+                style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: '#e2e8f0', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
+                <X size={13} />
+              </button>
+            )}
+            {searching && (
+              <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', width: 18, height: 18, border: '2.5px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite', zIndex: 1 }} />
+            )}
+            {showSuggestions && suggestions.length > 0 && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 500,
+                background: '#fff', border: '1.5px solid #3b82f6', borderTop: 'none',
+                borderRadius: '0 0 12px 12px', overflow: 'hidden',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+              }}>
+                {suggestions.map((s, i) => (
+                  <button key={i} type="button" onMouseDown={() => applySuggestion(s)} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+                    padding: '13px 16px', background: 'none', border: 'none', cursor: 'pointer',
+                    borderBottom: i < suggestions.length - 1 ? '1px solid #f1f5f9' : 'none',
+                    color: '#1e293b',
+                  }}>
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>📍</span>
+                    <span style={{ fontSize: 15, fontWeight: 600, flex: 1 }}>{s.name}</span>
+                    {s.province && <span style={{ fontSize: 13, color: '#64748b', flexShrink: 0 }}>{s.province}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </form>
+        </header>
+      ) : (
+      /* 데스크탑 헤더 */
       <header style={{
         background: 'rgba(15,23,42,0.98)', backdropFilter: 'blur(20px)',
         borderBottom: '1px solid rgba(255,255,255,0.07)',
-        padding: isMobile ? '0 12px' : '0 20px',
-        height: isMobile ? 52 : 58,
-        display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12,
+        padding: '0 20px',
+        height: 58,
+        display: 'flex', alignItems: 'center', gap: 12,
         flexShrink: 0, zIndex: 100,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
           <div style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', borderRadius: 9, padding: '5px 6px', boxShadow: '0 0 10px rgba(59,130,246,0.35)' }}>
             <MapPin size={13} color="white" />
           </div>
-          {!isMobile && <span style={{ fontWeight: 800, fontSize: 16, color: 'white', letterSpacing: '-0.3px' }}>동네허브</span>}
+          <span style={{ fontWeight: 800, fontSize: 16, color: 'white', letterSpacing: '-0.3px' }}>동네허브</span>
         </div>
 
-        <form onSubmit={handleSearch} style={{ flex: 1, maxWidth: isMobile ? '100%' : 440, position: 'relative' }}>
+        <form onSubmit={handleSearch} style={{ flex: 1, maxWidth: 440, position: 'relative' }}>
           <Search size={13} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#475569', pointerEvents: 'none', zIndex: 1 }} />
           <input
             value={searchInput}
@@ -535,17 +627,16 @@ export default function HomePage() {
             display: 'flex', alignItems: 'center', gap: 5,
             background: 'rgba(59,130,246,0.12)', color: '#60a5fa',
             border: '1px solid rgba(59,130,246,0.2)', borderRadius: 9,
-            padding: isMobile ? '7px 9px' : '7px 12px', fontSize: 12, fontWeight: 600,
+            padding: '7px 12px', fontSize: 12, fontWeight: 600,
             cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
           }}>
-            <Navigation size={12} />
-            {!isMobile && '내 위치'}
+            <Navigation size={12} />내 위치
           </button>
 
           <div style={{ position: 'relative' }}>
             <select value={sido} onChange={e => handleSidoChange(e.target.value)} className="sido-select" style={{
               appearance: 'none', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 9,
-              padding: isMobile ? '7px 22px 7px 9px' : '7px 26px 7px 11px', fontSize: 12,
+              padding: '7px 26px 7px 11px', fontSize: 12,
               color: 'white', background: 'rgba(255,255,255,0.06)', cursor: 'pointer', outline: 'none', fontWeight: 500,
             }}>
               {SIDO_LIST.map(s => <option key={s}>{s}</option>)}
@@ -553,7 +644,6 @@ export default function HomePage() {
             <ChevronDown size={11} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
           </div>
 
-          {/* 즐겨찾기 저장/해제 버튼 */}
           <button
             onClick={() => {
               if (isSaved(lat, lng)) {
@@ -563,7 +653,6 @@ export default function HomePage() {
                 setActiveTab('favorites')
               }
             }}
-            title={isSaved(lat, lng) ? '즐겨찾기 해제' : '현재 위치 즐겨찾기 저장'}
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               background: isSaved(lat, lng) ? 'rgba(234,179,8,0.15)' : 'rgba(255,255,255,0.07)',
@@ -573,34 +662,24 @@ export default function HomePage() {
             }}
           >
             {isSaved(lat, lng) ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
-            {!isMobile && <span>{isSaved(lat, lng) ? '저장됨' : '저장'}</span>}
+            <span>{isSaved(lat, lng) ? '저장됨' : '저장'}</span>
           </button>
-
-          {isMobile && (
-
-            <button onClick={() => setMobileView(v => v === 'info' ? 'map' : 'info')} style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: mobileView === 'map' ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.07)',
-              color: mobileView === 'map' ? '#c4b5fd' : '#94a3b8',
-              border: '1px solid rgba(255,255,255,0.1)', borderRadius: 9,
-              padding: '7px 9px', cursor: 'pointer', flexShrink: 0,
-            }}>
-              <MapIcon size={13} />
-            </button>
-          )}
         </div>
       </header>
+      )}
 
       {/* 강수 알림 배너 */}
       {rainAlert && (
         <div style={{
-          background: 'linear-gradient(90deg, rgba(59,130,246,0.18), rgba(99,102,241,0.12))',
-          borderBottom: '1px solid rgba(59,130,246,0.18)',
-          padding: '6px 16px', fontSize: 12, fontWeight: 600, color: '#93c5fd',
+          background: isMobile ? '#eff6ff' : 'linear-gradient(90deg, rgba(59,130,246,0.18), rgba(99,102,241,0.12))',
+          borderBottom: isMobile ? '1px solid #bfdbfe' : '1px solid rgba(59,130,246,0.18)',
+          padding: isMobile ? '10px 16px' : '6px 16px',
+          fontSize: isMobile ? 14 : 12, fontWeight: 600,
+          color: isMobile ? '#1d4ed8' : '#93c5fd',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
         }}>
           <span>{rainAlert}</span>
-          <button onClick={() => setRainAlert(null)} style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>✕</button>
+          <button onClick={() => setRainAlert(null)} style={{ background: 'none', border: 'none', color: isMobile ? '#64748b' : '#475569', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>✕</button>
         </div>
       )}
 
@@ -623,54 +702,109 @@ export default function HomePage() {
                   setMobileView('info')
                 }}
               />
+              {/* 지도 안 현재 주소 표시 */}
               <div style={{
-                position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)',
-                background: 'rgba(15,23,42,0.88)', backdropFilter: 'blur(10px)',
-                color: 'rgba(255,255,255,0.6)', borderRadius: 14, padding: '5px 13px',
-                fontSize: 11, pointerEvents: 'none', border: '1px solid rgba(255,255,255,0.07)', zIndex: 999,
+                position: 'absolute', top: 12, left: 12, right: 12, zIndex: 999,
+                background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)',
+                borderRadius: 14, padding: '10px 14px',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+                display: 'flex', alignItems: 'center', gap: 10,
               }}>
-                📍 탭하면 해당 위치 정보를 불러와요
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#3b82f6', flexShrink: 0 }} />
+                <p style={{ fontSize: 15, fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{address}</p>
               </div>
+              {/* 정보 보기 버튼 */}
+              <button
+                onClick={() => setMobileView('info')}
+                style={{
+                  position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+                  background: '#2563eb', color: 'white', border: 'none',
+                  borderRadius: 50, padding: '14px 28px',
+                  fontSize: 16, fontWeight: 700, cursor: 'pointer',
+                  boxShadow: '0 4px 20px rgba(37,99,235,0.5)',
+                  display: 'flex', alignItems: 'center', gap: 8, zIndex: 999,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                📋 이 동네 정보 보기
+              </button>
             </div>
           ) : (
             <>
               {/* 위치 표시 바 */}
               <div style={{
-                padding: '9px 14px', background: 'rgba(15,23,42,0.97)',
-                borderBottom: '1px solid rgba(255,255,255,0.06)',
-                display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
+                padding: '12px 16px', background: '#ffffff',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
               }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6', boxShadow: '0 0 5px #3b82f6', flexShrink: 0 }} />
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#3b82f6', boxShadow: '0 0 6px #3b82f6', flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: 'white', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{address}</p>
-                  <p style={{ fontSize: 10, color: '#475569' }}>{lat.toFixed(4)}°N · {lng.toFixed(4)}°E</p>
+                  <p style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📍 {address}</p>
                 </div>
+                {/* 지도 보기 버튼 */}
+                <button
+                  onClick={() => setMobileView('map')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    background: '#eff6ff', color: '#2563eb',
+                    border: '1.5px solid #bfdbfe', borderRadius: 10,
+                    padding: '8px 12px', fontSize: 13, fontWeight: 700,
+                    cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap',
+                  }}
+                >
+                  <MapIcon size={15} /> 지도 보기
+                </button>
               </div>
 
               {/* 모바일 탭 바 */}
               <div className="mobile-tabs" style={{
                 display: 'flex', overflowX: 'auto', flexShrink: 0,
-                background: 'rgba(15,23,42,0.97)', borderBottom: '1px solid rgba(255,255,255,0.06)',
-                gap: 2, padding: '4px 8px',
+                background: '#ffffff', borderBottom: '2px solid #e2e8f0',
+                gap: 0, padding: '0 6px',
               }}>
                 {TABS.map(tab => (
-                  <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="tab-btn" style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                    padding: '7px 12px', fontSize: 10, fontWeight: 700, flexShrink: 0,
-                    border: 'none', borderRadius: 9, cursor: 'pointer', whiteSpace: 'nowrap',
-                    background: activeTab === tab.id ? 'rgba(59,130,246,0.18)' : 'transparent',
-                    color: activeTab === tab.id ? '#93c5fd' : '#64748b',
-                    outline: activeTab === tab.id ? '1px solid rgba(59,130,246,0.35)' : 'none',
+                  <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="m-tab-btn" style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                    padding: '10px 14px 8px', fontSize: 12, fontWeight: 700, flexShrink: 0,
+                    border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                    background: 'transparent',
+                    color: activeTab === tab.id ? '#2563eb' : '#64748b',
+                    borderBottom: activeTab === tab.id ? '3px solid #2563eb' : '3px solid transparent',
                     transition: 'all 0.15s',
+                    marginBottom: -2,
                   }}>
-                    <span style={{ fontSize: 17 }}>{tab.icon}</span>
-                    {tab.label}
+                    <span style={{ fontSize: 22 }}>{tab.icon}</span>
+                    <span style={{ fontSize: 12 }}>{tab.label}</span>
                   </button>
                 ))}
               </div>
 
-              <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 80px' }}>
                 {tabContent}
+              </div>
+
+              {/* 하단 즐겨찾기 저장 버튼 */}
+              <div style={{
+                position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
+                background: '#ffffff', borderTop: '1px solid #e2e8f0',
+                padding: '10px 14px', paddingBottom: 'max(10px, env(safe-area-inset-bottom))',
+              }}>
+                <button
+                  onClick={() => {
+                    if (isSaved(lat, lng)) removeFav(`${lat.toFixed(4)}_${lng.toFixed(4)}`)
+                    else { addFav({ name: address, lat, lng, sido }); setActiveTab('favorites') }
+                  }}
+                  style={{
+                    width: '100%', padding: '14px',
+                    background: isSaved(lat, lng) ? '#fef3c7' : '#f8fafc',
+                    color: isSaved(lat, lng) ? '#92400e' : '#475569',
+                    border: `2px solid ${isSaved(lat, lng) ? '#fcd34d' : '#e2e8f0'}`,
+                    borderRadius: 14, fontSize: 15, fontWeight: 700,
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  }}
+                >
+                  {isSaved(lat, lng) ? <><BookmarkCheck size={18} /> 즐겨찾기에 저장됨</> : <><Bookmark size={18} /> 이 동네 즐겨찾기에 저장</>}
+                </button>
               </div>
             </>
           )}
