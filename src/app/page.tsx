@@ -100,16 +100,22 @@ export default function HomePage() {
   const [copied, setCopied] = useState(false)
 
   async function handleRealEstateItems(items: any[]) {
-    const top = items.slice(0, 50)
+    // 최신 거래순 상위 50개
+    const sorted = [...items].sort((a, b) => {
+      const da = `${a.dealYear}${String(a.dealMonth).padStart(2,'0')}${String(a.dealDay).padStart(2,'0')}`
+      const db = `${b.dealYear}${String(b.dealMonth).padStart(2,'0')}${String(b.dealDay).padStart(2,'0')}`
+      return db.localeCompare(da)
+    })
+    const top = sorted.slice(0, 50)
     const markers = await Promise.all(top.map(async item => {
       try {
         const res = await fetch(`/api/geocode-apt?q=${encodeURIComponent(item.aptNm)}&dong=${encodeURIComponent(item.umdNm || '')}&propType=${item.propType || 'apt'}`)
         const d = await res.json()
         if (!d.lat) return null
-        const price = item.dealType === '월세'
-          ? item.dealAmount.replace('보', '보').replace('·월', '/월')
-          : item.dealAmount.length > 5 ? item.dealAmount.slice(0, 6) + '..' : item.dealAmount
-        return { lat: d.lat, lng: d.lng, name: item.aptNm, price: formatPriceShort(item.dealAmount, item.dealType), dealType: item.dealType }
+        const dealDate = item.dealYear && item.dealMonth
+          ? `${item.dealYear}.${String(item.dealMonth).padStart(2,'0')}.${String(item.dealDay||'').padStart(2,'0')}`
+          : null
+        return { lat: d.lat, lng: d.lng, name: item.aptNm, price: formatPriceShort(item.dealAmount, item.dealType), dealType: item.dealType, dealDate }
       } catch { return null }
     }))
     setPriceMarkers(markers.filter(Boolean))

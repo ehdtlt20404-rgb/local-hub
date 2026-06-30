@@ -20,7 +20,7 @@ const PLACE_LABEL: Record<string, string> = { pharmacy: '약국', hospital: '병
 const DEAL_COLOR: Record<string, string> = { '매매': '#34d399', '전세': '#60a5fa', '월세': '#f59e0b' }
 
 interface Place { id: number; name: string; lat: number; lng: number; type: string; address?: string; phone?: string; distance?: string }
-export interface PriceMarker { lat: number; lng: number; name: string; price: string; dealType: string }
+export interface PriceMarker { lat: number; lng: number; name: string; price: string; dealType: string; dealDate?: string | null }
 
 function createPriceIcon(price: string, dealType: string, highlighted: boolean) {
   const color = DEAL_COLOR[dealType] || '#34d399'
@@ -126,7 +126,8 @@ function PriceMarkerLayer({ priceMarkers, highlightedApt, onPriceMarkerClick }: 
               <Popup minWidth={160}>
                 <div style={{ fontSize: 12 }}>
                   <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 3 }}>{pm.name}</div>
-                  <div style={{ color: DEAL_COLOR[pm.dealType] || '#34d399', fontWeight: 700, marginBottom: 8 }}>{pm.dealType} {pm.price}</div>
+                  <div style={{ color: DEAL_COLOR[pm.dealType] || '#34d399', fontWeight: 700, marginBottom: pm.dealDate ? 2 : 8 }}>{pm.dealType} {pm.price}</div>
+                  {pm.dealDate && <div style={{ fontSize: 10, color: '#888', marginBottom: 8 }}>거래일 {pm.dealDate}</div>}
                   <div style={{ display: 'flex', gap: 4 }}>
                     <a href={`https://search.naver.com/search.naver?query=${encodeURIComponent(pm.name + ' 아파트')}`} target="_blank" rel="noreferrer"
                       style={{ flex: 1, textAlign: 'center', padding: '4px 0', background: '#166534', color: '#4ade80', borderRadius: 5, fontSize: 10, fontWeight: 700, textDecoration: 'none' }}>
