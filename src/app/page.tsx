@@ -60,6 +60,7 @@ const SIDO_COORDS: Record<string, [number, number]> = {
   '충북': [36.8000, 127.7000], '충남': [36.5184, 126.8000], '전북': [35.7175, 127.1530],
   '전남': [34.8679, 126.9910], '경북': [36.4919, 128.8889], '경남': [35.4606, 128.2132],
   '제주': [33.4996, 126.5312],
+  '세종': [36.4800, 127.2890],
 }
 const SIDO_LIST = Object.keys(SIDO_COORDS)
 
@@ -286,11 +287,18 @@ export default function HomePage() {
   }, [isMobile])
 
   function handleCurrentLocation() {
-    navigator.geolocation.getCurrentPosition(pos => {
-      setLat(pos.coords.latitude)
-      setLng(pos.coords.longitude)
-      setAddress('현재 위치')
-    })
+    navigator.geolocation.getCurrentPosition(async pos => {
+      const { latitude: cLat, longitude: cLng } = pos.coords
+      setLat(cLat); setLng(cLng); setAddress('위치 확인 중...')
+      try {
+        const res = await fetch(`/api/address?lat=${cLat}&lng=${cLng}`)
+        const data = await res.json()
+        const addr = data.address || '현재 위치'
+        setAddress(addr)
+        const matched = SIDO_LIST.find(s => addr.includes(s))
+        if (matched) setSido(matched)
+      } catch { setAddress('현재 위치') }
+    }, () => alert('위치 권한을 허용해주세요'))
   }
 
   function handleSearchInputChange(val: string) {
@@ -312,10 +320,17 @@ export default function HomePage() {
     setLat(s.lat)
     setLng(s.lng)
     setAddress(s.name)
-    const matched = SIDO_LIST.find(sido => s.province.includes(sido) || s.name.includes(sido))
+    const matched = SIDO_LIST.find(sd => s.province.includes(sd) || s.name.includes(sd))
     if (matched) setSido(matched)
     setSuggestions([])
     setShowSuggestions(false)
+    // 모바일 키보드 닫기
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    // 역지오코딩으로 실제 주소 업데이트
+    fetch(`/api/address?lat=${s.lat}&lng=${s.lng}`)
+      .then(r => r.json())
+      .then(d => { if (d.address) setAddress(d.address) })
+      .catch(() => {})
   }
 
   async function handleSearch(e: React.FormEvent) {
@@ -334,6 +349,9 @@ export default function HomePage() {
         const province = data.province || ''
         const matched = SIDO_LIST.find(s => province.includes(s) || searchInput.includes(s))
         if (matched) setSido(matched)
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+      } else {
+        alert(`'${searchInput}' 검색 결과가 없어요.\n다른 이름이나 주소로 검색해보세요.`)
       }
     } finally {
       setSearching(false)
