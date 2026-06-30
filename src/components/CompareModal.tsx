@@ -393,7 +393,7 @@ export default function CompareModal({ current, onClose }: Props) {
             </div>
             {/* 시도 선택 */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
-              {SIDO_LIST.slice(0, 8).map(s => (
+              {SIDO_LIST.map(s => (
                 <button key={s} onClick={() => selectSido(s)} style={{
                   padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 700, border: 'none', cursor: 'pointer',
                   background: selectedSido === s ? 'rgba(59,130,246,0.35)' : compareLocation?.sido === s ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.06)',

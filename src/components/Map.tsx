@@ -194,16 +194,16 @@ function MapEvents({ onMapClick, onMapMove }: { onMapClick: (lat: number, lng: n
 
 function MapCenter({ lat, lng, focusLat, focusLng }: { lat: number; lng: number; focusLat?: number; focusLng?: number }) {
   const map = useMap()
-  useEffect(() => { if (focusLat && focusLng) map.setView([focusLat, focusLng], 17) }, [focusLat, focusLng])
+  useEffect(() => { if (focusLat != null && focusLng != null) map.setView([focusLat, focusLng], 17) }, [focusLat, focusLng])
   const prevLatRef = useRef(lat)
   const prevLngRef = useRef(lng)
   useEffect(() => {
     const center = map.getCenter()
-    const moved = Math.abs(center.lat - lat) > 0.0001 || Math.abs(center.lng - lng) > 0.0001
+    const moved = Math.abs(center.lat - lat) > 0.001 || Math.abs(center.lng - lng) > 0.001
     const changed = lat !== prevLatRef.current || lng !== prevLngRef.current
     prevLatRef.current = lat
     prevLngRef.current = lng
-    if (changed && moved && Math.abs(center.lat - lat) > 0.001) {
+    if (changed && moved) {
       map.setView([lat, lng], map.getZoom())
     }
   }, [lat, lng])

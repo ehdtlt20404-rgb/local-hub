@@ -157,7 +157,7 @@ export default function HomePage() {
     if (address && address !== '서울특별시 중구' && address !== '주소 불러오는 중...' && address !== '현재 위치') {
       addRecent({ name: address, lat, lng, sido })
     }
-  }, [address])
+  }, [address, lat, lng, sido])
 
   // 공유 URL 복사
   function handleShareUrl() {

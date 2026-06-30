@@ -52,8 +52,13 @@ export default function NeighborhoodScore({ lat, lng, sido, nx, ny }: Props) {
       fetch(`/api/places?lat=${lat}&lng=${lng}&type=hospital`).then(r => r.json()).catch(() => ({ places: [] })),
       fetch(`/api/realestate?sido=${encodeURIComponent(sido)}&lat=${lat}&lng=${lng}&quick=true`).then(r => r.json()).catch(() => ({ items: [] })),
     ]).then(([dustData, placesData, busData, reData]) => {
+      const dustItems = dustData?.items || []
+      const valid10 = dustItems.map((i: any) => Number(i.pm10Value)).filter((n: number) => !isNaN(n) && n > 0)
+      const valid25 = dustItems.map((i: any) => Number(i.pm25Value)).filter((n: number) => !isNaN(n) && n > 0)
+      const avg10 = valid10.length ? Math.round(valid10.reduce((s: number, n: number) => s + n, 0) / valid10.length) : null
+      const avg25 = valid25.length ? Math.round(valid25.reduce((s: number, n: number) => s + n, 0) / valid25.length) : 0
       setData({
-        dust: dustData?.pm10 ? { pm10: Number(dustData.pm10), pm25: Number(dustData.pm25 || 0) } : null,
+        dust: avg10 != null ? { pm10: avg10, pm25: avg25 } : null,
         places: (placesData?.places?.length || 0) * 3,
         buses: busData?.places?.length || 0,
         realestate: reData?.items?.length || 0,

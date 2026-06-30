@@ -42,7 +42,7 @@ const SORT_OPTIONS: { id: SortBy; label: string }[] = [
 
 function formatPrice(amount: string, dealType: string) {
   if (dealType === '월세') {
-    const [deposit, monthly] = amount.split('·')
+    const [deposit = '', monthly = ''] = amount.split('·')
     const fmt = (s: string) => {
       if (!s) return s
       const prefix = s.slice(0, 1)
