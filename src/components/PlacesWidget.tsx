@@ -15,6 +15,7 @@ const TYPES = [
   { id: 'subway', label: '지하철', emoji: '🚇' },
   { id: 'bank', label: '은행', emoji: '🏦' },
   { id: 'park', label: '공원', emoji: '🌳' },
+  { id: 'school', label: '학교', emoji: '🏫' },
 ]
 
 function isLikelyOpen(name: string): 'open24' | 'unknown' {
@@ -126,6 +127,14 @@ export default function PlacesWidget({ lat, lng, onPlacesChange }: {
                           background: 'rgba(52,211,153,0.15)', borderRadius: 4, padding: '1px 5px',
                         }}>24시간</span>
                       )}
+                      {type === 'school' && (() => {
+                        const n = p.name
+                        const tag = n.includes('초등') || n.includes('초교') ? { label: '초등', color: '#34d399', bg: 'rgba(52,211,153,0.15)' }
+                          : n.includes('중학') || n.includes('중교') ? { label: '중학', color: '#60a5fa', bg: 'rgba(96,165,250,0.15)' }
+                          : n.includes('고등') || n.includes('고교') ? { label: '고등', color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' }
+                          : null
+                        return tag ? <span style={{ fontSize: 9, fontWeight: 800, color: tag.color, background: tag.bg, borderRadius: 4, padding: '1px 5px' }}>{tag.label}</span> : null
+                      })()}
                     </div>
                     {p.address && <p style={{ fontSize: 10, color: '#64748b', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.address}</p>}
                     <div style={{ display: 'flex', gap: 6, marginTop: 5, alignItems: 'center' }}>

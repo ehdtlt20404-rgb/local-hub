@@ -8,6 +8,7 @@ const CATEGORY_MAP: Record<string, string> = {
   cafe: 'CE7',
   subway: 'SW8',
   bank: 'BK9',
+  school: 'SC4',
 }
 
 // 카테고리 코드 없이 키워드 검색을 쓰는 타입
