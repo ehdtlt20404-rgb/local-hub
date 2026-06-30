@@ -381,6 +381,7 @@ export default function HomePage() {
           onAptLocate={(aLat, aLng, name) => {
             setMapFocus({ lat: aLat, lng: aLng })
             setHighlightedApt(name)
+            if (isMobile) setMobileView('map')
           }}
         />
       )}
@@ -609,7 +610,19 @@ export default function HomePage() {
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {mobileView === 'map' ? (
             <div style={{ flex: 1, position: 'relative' }}>
-              <Map lat={lat} lng={lng} address={address} onMapClick={handleMapClick} places={activeTab === 'places' ? mapPlaces : []} />
+              <Map lat={lat} lng={lng} address={address} onMapClick={handleMapClick}
+                places={activeTab === 'places' ? mapPlaces : []}
+                priceMarkers={activeTab === 'realestate' ? priceMarkers : []}
+                highlightedApt={highlightedApt}
+                focusLat={mapFocus?.lat}
+                focusLng={mapFocus?.lng}
+                onPriceMarkerClick={name => {
+                  setAptExternalSelect(name)
+                  setHighlightedApt(name)
+                  setActiveTab('realestate')
+                  setMobileView('info')
+                }}
+              />
               <div style={{
                 position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)',
                 background: 'rgba(15,23,42,0.88)', backdropFilter: 'blur(10px)',
