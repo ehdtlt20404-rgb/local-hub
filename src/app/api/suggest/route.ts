@@ -14,83 +14,67 @@ export async function GET(req: NextRequest) {
   if (!q) return NextResponse.json([])
 
   const headers = { Authorization: `KakaoAK ${process.env.KAKAO_REST_API_KEY}` }
-  const signal = AbortSignal.timeout(4000)
-
-  // sido가 있으면 현재 지역 기반으로 검색 (주소 + 키워드 동시 호출)
   const sidoFull = SIDO_FULL[sido] || ''
-  const queryWithSido = sidoFull ? `${sidoFull} ${q}` : q
 
   try {
-    const [addrRes, kwRes] = await Promise.all([
+    // 3가지 검색을 동시에 실행
+    // 1) 건물명/장소명 그대로 검색 (sido 없이) → 하랑캐슬, 스타벅스 등
+    // 2) 주소 검색 (sido 포함) → 괴정동, 서구 등 동네 검색
+    // 3) 건물명 + sido 검색 → 지역 내 동명이인 건물 우선
+    const [kwRaw, addrWithSido, kwWithSido] = await Promise.all([
       fetch(
-        `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(queryWithSido)}&size=5`,
-        { headers, signal }
+        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=5`,
+        { headers, signal: AbortSignal.timeout(4000) }
       ).then(r => r.json()).catch(() => ({ documents: [] })),
+
       fetch(
-        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(queryWithSido)}&size=5`,
-        { headers, signal }
+        `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(sidoFull ? `${sidoFull} ${q}` : q)}&size=5`,
+        { headers, signal: AbortSignal.timeout(4000) }
       ).then(r => r.json()).catch(() => ({ documents: [] })),
+
+      sidoFull ? fetch(
+        `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(`${sidoFull} ${q}`)}&size=5`,
+        { headers, signal: AbortSignal.timeout(4000) }
+      ).then(r => r.json()).catch(() => ({ documents: [] })) : Promise.resolve({ documents: [] }),
     ])
 
-    const addrItems = (addrRes.documents || []).map((d: any) => ({
-      name: d.address_name,
+    // 결과 파싱
+    const toItem = (d: any, type: 'place' | 'address') => ({
+      name: type === 'place' ? d.place_name : d.address_name,
       lat: parseFloat(d.y),
       lng: parseFloat(d.x),
-      province: d.address?.region_1depth_name || d.road_address?.region_1depth_name || '',
-      type: 'address',
-    }))
+      province: type === 'place'
+        ? (d.address_name || '').split(' ')[0]
+        : (d.address?.region_1depth_name || d.road_address?.region_1depth_name || ''),
+      category: type === 'place' ? (d.category_group_name || '') : '',
+      type,
+    })
 
-    const kwItems = (kwRes.documents || []).map((d: any) => ({
-      name: d.place_name,
-      lat: parseFloat(d.y),
-      lng: parseFloat(d.x),
-      province: (d.address_name || '').split(' ')[0] || '',
-      category: d.category_group_name || '',
-      type: 'place',
-    }))
+    const kwItems = (kwRaw.documents || []).map((d: any) => toItem(d, 'place'))
+    const addrItems = (addrWithSido.documents || []).map((d: any) => toItem(d, 'address'))
+    const kwSidoItems = (kwWithSido.documents || []).map((d: any) => toItem(d, 'place'))
 
-    // 주소 결과 우선, 이후 장소 결과 추가 (중복 좌표 제거)
+    // 중복 제거 (위경도 기준)
     const seen = new Set<string>()
-    const merged: any[] = []
-    for (const item of [...addrItems, ...kwItems]) {
-      const key = `${item.lat.toFixed(4)}_${item.lng.toFixed(4)}`
-      if (!seen.has(key)) {
-        seen.add(key)
-        merged.push(item)
-      }
-    }
+    const dedup = (items: any[]) => items.filter(i => {
+      const key = `${i.lat.toFixed(4)}_${i.lng.toFixed(4)}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
 
-    // sido 기반 우선 정렬 (현재 선택 지역이 맨 앞)
-    if (sidoFull) {
-      merged.sort((a, b) => {
-        const aMatch = a.province.includes(sido) || a.province.includes(sidoFull) ? 0 : 1
-        const bMatch = b.province.includes(sido) || b.province.includes(sidoFull) ? 0 : 1
-        return aMatch - bMatch
-      })
-    }
+    // 현재 sido 지역 결과인지 확인
+    const isLocal = (item: any) =>
+      sidoFull && (item.province.includes(sido) || item.province.includes(sidoFull))
 
-    // sido 지역 결과가 없으면 전국 검색으로 보완
-    const hasLocalResult = merged.some(i => sidoFull && (i.province.includes(sido) || i.province.includes(sidoFull)))
-    if (!hasLocalResult && sidoFull) {
-      const [addrRes2, kwRes2] = await Promise.all([
-        fetch(
-          `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(q)}&size=5`,
-          { headers, signal: AbortSignal.timeout(3000) }
-        ).then(r => r.json()).catch(() => ({ documents: [] })),
-        fetch(
-          `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=5`,
-          { headers, signal: AbortSignal.timeout(3000) }
-        ).then(r => r.json()).catch(() => ({ documents: [] })),
-      ])
-      const fallback = [
-        ...(addrRes2.documents || []).map((d: any) => ({ name: d.address_name, lat: parseFloat(d.y), lng: parseFloat(d.x), province: d.address?.region_1depth_name || '', type: 'address' })),
-        ...(kwRes2.documents || []).map((d: any) => ({ name: d.place_name, lat: parseFloat(d.y), lng: parseFloat(d.x), province: (d.address_name || '').split(' ')[0] || '', category: d.category_group_name || '', type: 'place' })),
-      ]
-      for (const item of fallback) {
-        const key = `${item.lat.toFixed(4)}_${item.lng.toFixed(4)}`
-        if (!seen.has(key)) { seen.add(key); merged.push(item) }
-      }
-    }
+    // 합치기: 현재 지역 결과 먼저, 그 다음 전국 결과
+    // 순서: 지역 키워드(sido+q) → 지역 주소 → 전국 키워드
+    const localKw = dedup(kwSidoItems.filter(isLocal))
+    const localAddr = dedup(addrItems.filter(isLocal))
+    const globalKw = dedup(kwItems)
+    const restAddr = dedup(addrItems)
+
+    const merged = [...localKw, ...localAddr, ...globalKw, ...restAddr]
 
     return NextResponse.json(merged.slice(0, 7))
   } catch {
