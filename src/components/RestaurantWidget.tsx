@@ -56,7 +56,7 @@ export default function RestaurantWidget({ lat, lng }: { lat: number; lng: numbe
 
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {[...Array(5)].map((_, i) => <div key={i} style={{ height: 62, background: 'rgba(255,255,255,0.04)', borderRadius: 12 }} />)}
+          {[...Array(5)].map((_, i) => <div key={i} style={{ height: 62, borderRadius: 12, background: 'linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />)}
         </div>
       ) : places.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '24px 0', color: '#475569', fontSize: 13 }}>

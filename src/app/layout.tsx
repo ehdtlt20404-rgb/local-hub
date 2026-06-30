@@ -51,12 +51,7 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  verification: {
-    google: "추후_구글서치콘솔_코드_입력",
-    other: {
-      "naver-site-verification": "추후_네이버서치어드바이저_코드_입력",
-    },
-  },
+
 };
 
 export default function RootLayout({

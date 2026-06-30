@@ -40,7 +40,7 @@ export default function EventsWidget({ sido }: { sido: string }) {
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {[...Array(4)].map((_, i) => (
-        <div key={i} style={{ height: 72, background: '#f1f5f9', borderRadius: 10 }} />
+        <div key={i} style={{ height: 72, borderRadius: 10, background: 'linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />
       ))}
     </div>
   )

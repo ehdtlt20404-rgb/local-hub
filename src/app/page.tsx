@@ -363,7 +363,7 @@ export default function HomePage() {
     const [newLat, newLng] = SIDO_COORDS[newSido]
     setLat(newLat)
     setLng(newLng)
-    setAddress(`${newSido}`)
+    setAddress(`${newSido} 전체`)
   }
 
   const tabContent = (
@@ -620,7 +620,7 @@ export default function HomePage() {
           <input
             value={searchInput}
             onChange={e => handleSearchInputChange(e.target.value)}
-            placeholder="동네 검색..."
+            placeholder="동네·장소 검색 (예: 강남구, 스타벅스)"
             style={{
               width: '100%', paddingLeft: 32, paddingRight: searchInput ? 28 : 10,
               paddingTop: 8, paddingBottom: 8, border: '1px solid rgba(255,255,255,0.09)',
