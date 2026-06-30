@@ -81,7 +81,7 @@ export default function HomePage() {
   const [sido, setSido] = useState('서울')
   const [activeTab, setActiveTab] = useState<TabId>('weather')
   const [searching, setSearching] = useState(false)
-  const [suggestions, setSuggestions] = useState<{ name: string; lat: number; lng: number; province: string }[]>([])
+  const [suggestions, setSuggestions] = useState<{ name: string; lat: number; lng: number; province: string; category?: string; type?: string }[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [mapPlaces, setMapPlaces] = useState<any[]>([])
@@ -89,6 +89,9 @@ export default function HomePage() {
   const [mapFocus, setMapFocus] = useState<{ lat: number; lng: number } | null>(null)
   const [aptExternalSelect, setAptExternalSelect] = useState<string | null>(null)
   const [highlightedApt, setHighlightedApt] = useState<string | null>(null)
+  // 부동산 탭 상태 유지 (지도↔정보 전환 시 리셋 방지)
+  const [rePropType, setRePropType] = useState<'apt'|'villa'|'house'|'officetel'>('apt')
+  const [reDealTab, setReDealTab] = useState<'trade'|'rent'>('trade')
   const [realEstateLoading, setRealEstateLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [rainAlert, setRainAlert] = useState<string | null>(null)
@@ -296,7 +299,7 @@ export default function HomePage() {
     if (!val.trim()) { setSuggestions([]); setShowSuggestions(false); return }
     suggestTimer.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/suggest?q=${encodeURIComponent(val)}`)
+        const res = await fetch(`/api/suggest?q=${encodeURIComponent(val)}&sido=${encodeURIComponent(sido)}`)
         const data = await res.json()
         setSuggestions(data)
         setShowSuggestions(data.length > 0)
@@ -384,6 +387,10 @@ export default function HomePage() {
           onItemsChange={handleRealEstateItems}
           externalSelected={aptExternalSelect}
           onLoadingChange={setRealEstateLoading}
+          propType={rePropType}
+          dealTab={reDealTab}
+          onPropTypeChange={setRePropType}
+          onDealTabChange={setReDealTab}
           onAptLocate={(aLat, aLng, name) => {
             setMapFocus({ lat: aLat, lng: aLng })
             setHighlightedApt(name)
@@ -553,8 +560,11 @@ export default function HomePage() {
                     borderBottom: i < suggestions.length - 1 ? '1px solid #f1f5f9' : 'none',
                     color: '#1e293b',
                   }}>
-                    <span style={{ fontSize: 18, flexShrink: 0 }}>📍</span>
-                    <span style={{ fontSize: 15, fontWeight: 600, flex: 1 }}>{s.name}</span>
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>{s.type === 'place' ? '🏢' : '📍'}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: 15, fontWeight: 600 }}>{s.name}</span>
+                      {s.category && <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 6 }}>{s.category}</span>}
+                    </div>
                     {s.province && <span style={{ fontSize: 13, color: '#64748b', flexShrink: 0 }}>{s.province}</span>}
                   </button>
                 ))}
@@ -619,8 +629,11 @@ export default function HomePage() {
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.12)')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                 >
-                  <span style={{ fontSize: 11, color: '#64748b', flexShrink: 0 }}>📍</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+                  <span style={{ fontSize: 11, color: '#64748b', flexShrink: 0 }}>{s.type === 'place' ? '🏢' : '📍'}</span>
+                  <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                    <span style={{ fontSize: 12, fontWeight: 600 }}>{s.name}</span>
+                    {s.category && <span style={{ fontSize: 10, color: '#475569', marginLeft: 5 }}>{s.category}</span>}
+                  </div>
                   {s.province && <span style={{ fontSize: 10, color: '#475569', flexShrink: 0 }}>{s.province}</span>}
                 </button>
               ))}

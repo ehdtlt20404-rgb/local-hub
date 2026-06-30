@@ -213,15 +213,22 @@ function PriceChart({ chartData }: { chartData: { label: string; avg: number }[]
 
 const COMPARE_CITIES = ['서울', '부산', '대구', '대전', '광주', '인천']
 
-export default function RealEstateWidget({ sido, lat, lng, onItemsChange, externalSelected, onAptLocate, onLoadingChange }: {
+export default function RealEstateWidget({ sido, lat, lng, onItemsChange, externalSelected, onAptLocate, onLoadingChange, propType: propTypeProp, dealTab: dealTabProp, onPropTypeChange, onDealTabChange }: {
   sido: string; lat: number; lng: number
   onItemsChange?: (items: TradeItem[]) => void
   externalSelected?: string | null
   onAptLocate?: (lat: number, lng: number, name: string) => void
   onLoadingChange?: (loading: boolean) => void
+  propType?: PropType
+  dealTab?: DealTab
+  onPropTypeChange?: (v: PropType) => void
+  onDealTabChange?: (v: DealTab) => void
 }) {
-  const [dealTab, setDealTab] = useState<DealTab>('trade')
-  const [propType, setPropType] = useState<PropType>('apt')
+  const [dealTab, setDealTabLocal] = useState<DealTab>(dealTabProp ?? 'trade')
+  const [propType, setPropTypeLocal] = useState<PropType>(propTypeProp ?? 'apt')
+
+  function setDealTab(v: DealTab) { setDealTabLocal(v); onDealTabChange?.(v) }
+  function setPropType(v: PropType) { setPropTypeLocal(v); onPropTypeChange?.(v) }
   const [items, setItems] = useState<TradeItem[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingFull, setLoadingFull] = useState(false)
